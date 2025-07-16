@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { reviewResume } from "../../lib/genai";
-import PdfParse from "pdf-parse";
 
+const PdfParse = require("pdf-parse");
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
