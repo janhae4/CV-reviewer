@@ -29,6 +29,41 @@ export default function RootLayout({
       >
         {children}
       </body>
+      {/* Footer */}
+      <footer className="bg-gray-900 border-t border-white/10 py-12 backdrop-blur-3xl">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid gap-8">
+            {/* Logo & Description */}
+            <div>
+              <h3 className="text-2xl font-bold text-white mb-4">
+                CV Analyzer
+              </h3>
+              <p className="text-gray-400 text-base leading-relaxed">
+                Công cụ phân tích CV thông minh giúp bạn tối ưu hóa hồ sơ và
+                tăng cơ hội được tuyển dụng.
+              </p>
+            </div>
+
+            {/* Contact */}
+            <div>
+              <h4 className="text-lg font-semibold text-white mb-4">Liên hệ</h4>
+              <div className="space-y-2">
+                <p className="text-gray-400">
+                  <span className="font-medium">Email:</span>{" "}
+                  hlchy11997@gmail.com
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom */}
+          <div className="border-t border-white/10 mt-8 pt-8 text-center">
+            <p className="text-gray-400 text-sm">
+              © 2025 AI Resume Reviewer. Tất cả quyền được bảo lưu.
+            </p>
+          </div>
+        </div>
+      </footer>
     </html>
   );
 }
