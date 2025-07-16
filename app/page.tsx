@@ -107,8 +107,6 @@ export default function Home() {
 
       let val = 0;
       let isPostComplete = false;
-      const progressInterval: NodeJS.Timeout;
-      const timeInterval: NodeJS.Timeout;
 
       const handleComplete = () => {
         clearInterval(progressInterval);
@@ -116,7 +114,7 @@ export default function Home() {
         setLoading(false);
       };
 
-      progressInterval = setInterval(() => {
+      const progressInterval = setInterval(() => {
         if (!isPostComplete) {
           val += Math.random() * 5;
           if (val >= 70) val = 70;
@@ -132,7 +130,7 @@ export default function Home() {
         setProgress(val);
       }, 300);
 
-      timeInterval = setInterval(() => {
+      const timeInterval = setInterval(() => {
         setElapsedTime((prev) => prev + 1);
       }, 1000);
 
