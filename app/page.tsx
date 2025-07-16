@@ -1,12 +1,10 @@
 "use client";
-import { use, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CiCircleCheck, CiCircleInfo } from "react-icons/ci";
-import { FaInfo, FaInfoCircle, FaRegTimesCircle } from "react-icons/fa";
+import { FaRegTimesCircle } from "react-icons/fa";
 import { HiArrowNarrowUp } from "react-icons/hi";
-import { IoIosInformation } from "react-icons/io";
-import { IoDocumentTextOutline, IoInformationOutline } from "react-icons/io5";
+import { IoDocumentTextOutline } from "react-icons/io5";
 import { SlEnergy } from "react-icons/sl";
-import ReactMarkDown from "react-markdown";
 import SkeletonResult from "./components/skeleton";
 import { useSectionScroll } from "./lib/hook/useSectionScroll";
 
@@ -29,8 +27,6 @@ export default function Home() {
   const [showWeaknesses, setShowWeaknesses] = useState<boolean>(true);
   const [showImprovements, setShowImprovements] = useState<boolean>(true);
   const [showKeywords, setShowKeywords] = useState<boolean>(true);
-  const [showCVKeywords, setShowCVKeywords] = useState<boolean>(true);
-  const [showMissingKeywords, setShowMissingKeywords] = useState<boolean>(true);
   const [progress, setProgress] = useState<number>(0);
   const [elapsedTime, setElapsedTime] = useState<number>(0);
   const [jobDescription, setJobDescription] = useState<string>("");
@@ -73,7 +69,7 @@ export default function Home() {
     } else if (number === 3) {
       section3Ref.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }
+  };
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -111,8 +107,8 @@ export default function Home() {
 
       let val = 0;
       let isPostComplete = false;
-      let progressInterval: NodeJS.Timeout;
-      let timeInterval: NodeJS.Timeout;
+      const progressInterval: NodeJS.Timeout;
+      const timeInterval: NodeJS.Timeout;
 
       const handleComplete = () => {
         clearInterval(progressInterval);
