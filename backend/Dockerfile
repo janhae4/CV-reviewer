@@ -2,14 +2,20 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Debug: Xem Docker dang dung dau
-RUN pwd && ls -la
-
-# Copy tat ca file json o thu muc hien tai
-COPY *.json ./
-RUN npm install
-
+# Copy toan bo nhung gi Docker dang co tiep can
 COPY . .
+
+# Tim xem package.json dang o dau
+RUN find . -maxdepth 2 -name "package.json"
+
+# Neu Railway dang dua vao context la ca repo, package.json se o ./backend/package.json
+# Chung ta se dua no ra thu muc goc cua WORKDIR
+RUN if [ -f "./backend/package.json" ]; then \
+    echo "Found at ./backend/package.json, moving files..." && \
+    cp -r ./backend/* . ; \
+    fi
+
+RUN npm install
 RUN npm run build
 
 # Stage 2: Runtime
