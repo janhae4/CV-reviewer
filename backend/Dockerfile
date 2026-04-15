@@ -1,9 +1,9 @@
 # Stage 1: Build
 FROM node:20-alpine AS builder
 WORKDIR /app
+
 COPY package.json ./
-# Kỹ thuật copy an toàn: không bắt buộc có package-lock
-COPY package-lock.json* ./ 
+COPY package-lock.json* ./
 RUN npm install
 COPY . .
 RUN npm run build
