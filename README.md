@@ -1,36 +1,73 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🎯 CV Reviewer Engine
 
-## Getting Started
+Một công cụ phân tích CV chuyên sâu sử dụng trí tuệ nhân tạo (Gemini AI) giúp tối ưu hóa hồ sơ theo chuẩn ATS (Applicant Tracking System). Dự án được thiết kế với phong cách Brutalist hiện đại, hỗ trợ chú thích trực tiếp trên PDF.
 
-First, run the development server:
+![CV Reviewer Demo](https://images.unsplash.com/photo-1586281380349-632531db7ed4?q=80&w=2070&auto=format&fit=crop)
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## ✨ Tính năng nổi bật
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- **🔍 Phân tích ATS chuyên sâu**: Giải mã hồ sơ theo cách các thuật toán nhìn thấy.
+- **📝 Chú thích PDF trực tiếp**: Hiển thị các lỗi và gợi ý cải thiện ngay trên file CV của bạn.
+- **📊 Keyword Analytics**: So khớp từ khóa giữa CV và mô tả công việc (JD).
+- **🌍 Đa ngôn ngữ**: Hỗ trợ đầy đủ tiếng Việt và tiếng Anh.
+- **🔒 Quyền riêng tư**: Xử lý dữ liệu tức thời và không lưu trữ hồ sơ của người dùng.
+- **☕ Mô hình ủng hộ cộng đồng**: Miễn phí cho mọi người, duy trì qua hình thức quyên góp tự nguyện.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🛠️ Tech Stack
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Framework**: [Next.js 16](https://nextjs.org/) (App Router)
+- **UI/UX**: React 19, Tailwind CSS 4, Lucide Icons, Framer Motion
+- **AI Core**: [Google Gemini AI SDK](https://ai.google.dev/)
+- **PDF Processing**: PDF.js (Client-side rendering & Annotation)
+- **Tracking**: FingerprintJS (Quản lý lượt dùng miễn phí)
+- **Deployment**: Vercel & GitHub Actions (CI/CD)
 
-## Learn More
+## 🚀 Cài đặt Development
 
-To learn more about Next.js, take a look at the following resources:
+Yêu cầu: Node.js 20+ và `pnpm`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. **Clone dự án**:
+   ```bash
+   git clone https://github.com/janhae4/CV-reviewer.git
+   cd CV-reviewer
+   ```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+2. **Cài đặt dependencies**:
+   ```bash
+   pnpm install
+   ```
 
-## Deploy on Vercel
+3. **Cấu hình môi trường**:
+   Tạo file `.env.local` và thêm API Key:
+   ```env
+   GEMINI_API_KEY=your_gemini_api_key_here
+   ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+4. **Chạy ứng dụng**:
+   ```bash
+   pnpm dev
+   ```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 🏗️ Cấu trúc dự án
+
+- `/app`: Chứa mã nguồn Next.js (Pages, API Routes, Layouts).
+- `/components`: Các UI component dùng chung (PdfAnnotator, v.v.).
+- `/lib`: Chứa logic xử lý Gemini AI, dịch thuật và các helper function.
+- `/.github/workflows`: Quy trình CI/CD tự động deploy lên Vercel.
+
+## 🔌 CI/CD
+
+Dự án đã được tích hợp sẵn quy trình Deploy tự động:
+- Mỗi khi push lên nhánh `main`, GitHub Actions sẽ tự động build và đẩy lên Vercel.
+- Cần cấu hình secret `VERCEL_TOKEN` trong repository GitHub để quy trình hoạt động.
+
+## 🤝 Hỗ trợ tác giả
+
+Nếu bạn thấy công cụ này hữu ích, hãy ủng hộ mình một ly cafe qua cổng Momo nhé! Sự đóng góp của bạn giúp duy trì server và chi phí API Gemini hàng tháng.
+
+## 📄 License
+
+Dự án được phát hành dưới bản quyền tự do. Vui lòng ghi rõ nguồn nếu bạn sử dụng lại mã nguồn.
+
+---
+Built with ❤️ by **janhae4** using **Gemini AI**
