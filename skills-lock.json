@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "skills": {
+    "frontend-design": {
+      "source": "anthropics/claude-code",
+      "sourceType": "github",
+      "computedHash": "e8118284a6365753790d44bb2758a6032b3af27fa84696428d9233f2be0f4e78"
+    },
+    "gemini-api-dev": {
+      "source": "google-gemini/gemini-skills",
+      "sourceType": "github",
+      "computedHash": "3b6e763faa077750ef596d53c1be431e61c66a28591c3092c54c94162deac1e8"
+    },
+    "nextjs": {
+      "source": "vercel-labs/vercel-plugin",
+      "sourceType": "github",
+      "computedHash": "d3a48eada4dbae95856d643a0c9c54a38974ee7896a4d34f93aead13d26c343a"
+    },
+    "react-pdf": {
+      "source": "vercel-labs/json-render",
+      "sourceType": "github",
+      "computedHash": "82c58b5177f429f759ea93d6b60264a4ffee9a8ca233a1d5186c85c3b0492516"
+    },
+    "view-pdf": {
+      "source": "anthropics/knowledge-work-plugins",
+      "sourceType": "github",
+      "computedHash": "3b5f99f6b143eef94df0c20eb98972d2e77f53f4682e308dfe21035771cee3b0"
+    }
+  }
+}

@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { reviewResume } from "../../lib/genai";
 
-const PdfParse = require("pdf-parse");
+import PdfParse from "pdf-parse";
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File;
     const jobDescription = formData.get("jobDescription") as string;
+    const lang = (formData.get("lang") as string) || "vi";
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
@@ -38,7 +39,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const feedback = await reviewResume(text, jobDescription);
+    const userApiKey = formData.get("userApiKey") as string;
+    const visitorId = formData.get("visitorId") as string;
+
+    console.log(`[Review] Visitor: ${visitorId || "unknown"} | Key: ${userApiKey ? (userApiKey === "DEV_BYPASS" ? "DEV_BYPASS" : "USER_KEY") : "SYSTEM_KEY"}`);
+    
+    const feedback = await reviewResume(text, jobDescription, lang, userApiKey);
     return NextResponse.json(feedback, { status: 200 });
   } catch (error) {
     console.error("API Error:", error);

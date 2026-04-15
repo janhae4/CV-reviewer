@@ -1,152 +1,59 @@
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400..700&family=Fraunces:ital,opsz,wght@0,9..144,100..900;1,9..144,100..900&family=Manrope:wght@200..800&display=swap');
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #030303;
+  --foreground: #f2f2ed;
+  --accent: #E1FF01;
+  --surface: #0a0a0a;
+  --border: #262626;
+  --positive: #E1FF01;
+  --negative: #FF453A;
+  --neutral: #8E8E93;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-accent: var(--accent);
+  --color-surface: var(--surface);
+  --color-border: var(--border);
+  --color-positive: var(--positive);
+  --color-negative: var(--negative);
+  --color-neutral: var(--neutral);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-.glass-text {
-  background: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 1) 0%,
-    rgba(255, 255, 255, 1) 25%,
-    rgba(168, 85, 247, 1) 50%,
-    rgba(236, 72, 153, 1) 75%,
-    rgba(255, 255, 255, 1) 100%
-  );
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  text-shadow: 0 0 20px rgba(168, 85, 247, 0.3),
-    0 0 40px rgba(236, 72, 153, 0.2), 0 0 60px rgba(255, 255, 255, 0.1);
-  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2))
-    drop-shadow(0 8px 16px rgba(0, 0, 0, 0.1));
-}
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--background); }
+::-webkit-scrollbar-thumb { background: var(--border); }
+::-webkit-scrollbar-thumb:hover { background: var(--neutral); }
 
-.text-3d {
-  transform-style: preserve-3d;
-  transform: perspective(1000px) rotateX(10deg) rotateY(-5deg);
-  transition: transform 0.3s ease;
+/* Entry animations (used by app page) */
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
+.animate-entry {
+  animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
+}
+.delay-1 { animation-delay: 0.1s; }
+.delay-2 { animation-delay: 0.2s; }
+.delay-3 { animation-delay: 0.3s; }
 
-.text-3d:hover {
-  transform: perspective(1000px) rotateX(5deg) rotateY(2deg) scale(1.02);
+/* Ticker animation (landing page) */
+@keyframes ticker {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
 }
-
-@keyframes gradientShift {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
-.floating {
-  animation: float 6s ease-in-out infinite;
-}
-
-@keyframes float {
-  0%,
-  100% {
-    transform: translateY(0px) rotate(0deg);
-  }
-  50% {
-    transform: translateY(-10px) rotate(1deg);
-  }
-}
-
-.glow-effect {
-  position: relative;
-}
-
-@keyframes glowAnimation {
-  0%,
-  100% {
-    background-position: 0% 50%;
-    opacity: 0.7;
-  }
-  50% {
-    background-position: 100% 50%;
-    opacity: 1;
-  }
-}
-
-.gradient-icon {
-  color: whitesmoke;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 0 8px rgba(168, 85, 247, 0.5))
-    drop-shadow(0 0 16px rgba(236, 72, 153, 0.3));
-  animation: iconGlow 3s ease-in-out infinite;
-}
-
-@keyframes iconGlow {
-  0%,
-  100% {
-    filter: drop-shadow(0 0 8px rgba(168, 85, 247, 0.5))
-      drop-shadow(0 0 16px rgba(236, 72, 153, 0.3));
-  }
-  50% {
-    filter: drop-shadow(0 0 12px rgba(168, 85, 247, 0.8))
-      drop-shadow(0 0 24px rgba(236, 72, 153, 0.5));
-  }
-}
-
-.icon-container {
-  position: relative;
-  transition: transform 0.3s ease;
-}
-
-.icon-container:hover {
-  transform: scale(1.1) rotate(5deg);
-}
-
-@keyframes pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.7;
-  }
-}
-@keyframes glow {
-  from {
-    opacity: 0.3;
-  }
-  to {
-    opacity: 0.7;
-  }
-}
-.animation-delay-1000 {
-  animation-delay: 1s;
-}
-.animation-delay-2000 {
-  animation-delay: 2s;
-}
-
