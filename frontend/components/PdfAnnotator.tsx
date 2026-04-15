@@ -34,6 +34,8 @@ const TYPE_COLORS = {
   warning: { fill: "rgba(255,159,10,0.15)", stroke: "#FF9F0A", badgeBg: "#FF9F0A", text: "#000", legendLabel: "Suggestion" },
 };
 
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "";
+
 interface Props {
   fileUrl: string;
   annotations: AnnotationHint[];
@@ -211,22 +213,36 @@ export default function PdfAnnotator({ fileUrl, annotations, t, resumeText, jobD
     setUserScale(prev => Math.min(3, Math.max(0.2, +(prev + delta).toFixed(2))));
   };
 
+  const pollJob = async (jobId: string) => {
+    let isDone = false;
+    while (!isDone) {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      const statusRes = await fetch(`${BACKEND_URL}/api/review/status/${jobId}`);
+      const statusData = await statusRes.json();
+      if (statusData.state === "completed") return statusData.result;
+      if (statusData.state === "failed") throw new Error(statusData.error || "Failed");
+    }
+  };
+
   const handleMagicFix = async (idx: number, quote: string) => {
     setIsFixing(idx);
     try {
-      const res = await fetch("/api/magic-fix", {
+      const res = await fetch(`${BACKEND_URL}/api/generate`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          type: "magic-fix",
           quote,
-          resumeText: resumeText,
-          jobDescription: jobDescription,
-          lang: lang,
-          userApiKey: userApiKey
+          resumeText,
+          jobDescription,
+          lang,
+          userApiKey
         })
       });
       const data = await res.json();
-      if (data.fixed) {
-        setFixedTexts(prev => ({ ...prev, [idx]: data.fixed }));
+      if (data.jobId) {
+        const result = await pollJob(data.jobId);
+        setFixedTexts(prev => ({ ...prev, [idx]: result }));
       }
     } catch (e) {
       console.error(e);

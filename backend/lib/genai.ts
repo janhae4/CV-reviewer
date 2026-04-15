@@ -1,6 +1,9 @@
 import { GoogleGenAI } from "@google/genai";
+import * as dotenv from "dotenv";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+dotenv.config();
+
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
 export const reviewResume = async (
   resumeText: string,
@@ -11,12 +14,10 @@ export const reviewResume = async (
   const isEn = lang === "en";
   const languageName = isEn ? "English" : "Tiếng Việt";
 
-  // If user provides their own key, use it; otherwise fallback to system key
   const aiClient = (providedApiKey && providedApiKey !== "DEV_BYPASS")
     ? new GoogleGenAI({ apiKey: providedApiKey }) 
     : ai;
 
-  // Security: Basic sanitization and generous truncation
   const sanitizedJD = jobDescription.slice(0, 20000).replace(/<|>(?!\/)/g, ""); 
   const sanitizedCV = resumeText.slice(0, 100000); 
 
@@ -73,7 +74,6 @@ Return strictly valid JSON in ${languageName}.`,
     },
   });
   const text = response.text || "";
-  // Strip markdown code fences if present
   const cleaned = text.replace(/```json?\n?/gi, "").replace(/```/g, "").trim();
   const jsonStart = cleaned.indexOf("{");
   const jsonEnd = cleaned.lastIndexOf("}");
@@ -124,7 +124,6 @@ Guidelines:
   });
 
   const rawText = response.text || "";
-  // Strip markdown bold/italic markers that Gemini sometimes includes
   const cleanText = rawText.replace(/\*\*(.*?)\*\*/g, "$1").replace(/\*(.*?)\*/g, "$1").trim();
   return cleanText;
 };

@@ -1,0 +1,54 @@
+services:
+  redis:
+    image: redis:alpine
+    container_name: cv-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - cv-network
+
+  backend:
+    build: 
+      context: ./backend
+    container_name: cv-backend
+    ports:
+      - "3001:3001"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - PORT=3001
+    depends_on:
+      - redis
+    networks:
+      - cv-network
+
+  worker:
+    build: 
+      context: ./backend
+    container_name: cv-worker
+    command: npm run worker
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    depends_on:
+      - redis
+    networks:
+      - cv-network
+
+  frontend:
+    build: 
+      context: ./frontend
+    container_name: cv-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_BACKEND_URL=http://localhost:3001
+      - INTERNAL_BACKEND_URL=http://backend:3001
+    depends_on:
+      - backend
+    networks:
+      - cv-network
+
+networks:
+  cv-network:
+    driver: bridge

@@ -1,0 +1,9 @@
+node_modules
+.next
+.git
+.env
+.env.local
+pnpm-lock.yaml
+npm-debug.log*
+dist
+build

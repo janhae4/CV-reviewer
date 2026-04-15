@@ -5,9 +5,10 @@ import Link from "next/link";
 import Image from "next/image";
 import * as XLSX from 'xlsx';
 
-import { translations, Language } from "../lib/translations";
-const PdfAnnotator = lazy(() => import("../components/PdfAnnotator"));
-import type { AnnotationHint } from "../components/PdfAnnotator";
+import { translations, Language } from "../../lib/translations";
+const PdfAnnotator = lazy(() => import("../../components/PdfAnnotator"));
+import type { AnnotationHint } from "../../components/PdfAnnotator";
+// API calls will use relative paths to trigger the Next.js proxy
 
 export default function AppPage() {
   const [file, setFile] = useState<File | null>(null);
@@ -113,15 +114,16 @@ export default function AppPage() {
     }, 350);
 
     try {
-      const resp = await fetch("/api/cover-letter", {
+      const resp = await fetch(`/api/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resumeText, jobDescription, lang, userApiKey })
+        body: JSON.stringify({ type: "cover-letter", resumeText, jobDescription, lang, userApiKey })
       });
       const data = await resp.json();
-      if (data.coverLetter) {
+      if (data.jobId) {
+        const result = await pollJob(data.jobId);
         setClProgress(100);
-        setCoverLetter(data.coverLetter);
+        setCoverLetter(result);
         showToast(lang === "vi" ? "Đã soạn thảo xong Cover Letter!" : "Cover Letter ready!");
       }
     } catch (e) {
@@ -136,6 +138,17 @@ export default function AppPage() {
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(""), 3000);
+  };
+
+  const pollJob = async (jobId: string) => {
+    let isDone = false;
+    while (!isDone) {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      const statusRes = await fetch(`/api/review/status/${jobId}`);
+      const statusData = await statusRes.json();
+      if (statusData.state === "completed") return statusData.result;
+      if (statusData.state === "failed") throw new Error(statusData.error || "Processing failed");
+    }
   };
 
 
@@ -242,10 +255,22 @@ export default function AppPage() {
         setProgress(val);
       }, 300);
 
-      const res = await fetch("/api/review", { method: "POST", body: formData });
+      const res = await fetch(`/api/review`, { method: "POST", body: formData });
       const data = await res.json();
-      if (!res.ok || data.error) { clearInterval(progressInterval); throw new Error(data.error || "Error"); }
-      pendingData = data; isPostComplete = true;
+
+      if (!res.ok || data.error) {
+        clearInterval(progressInterval);
+        throw new Error(data.error || "Error");
+      }
+
+      // If background processing is enabled (jobId returned)
+      if (data.jobId) {
+        pendingData = await pollJob(data.jobId);
+      } else {
+        pendingData = data;
+      }
+
+      isPostComplete = true;
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : t.error);
       setLoading(false);
@@ -269,15 +294,16 @@ export default function AppPage() {
     }, 400);
 
     try {
-      const resp = await fetch("/api/interview-prep", {
+      const resp = await fetch(`/api/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resumeText, jobDescription, lang, userApiKey })
+        body: JSON.stringify({ type: "interview", resumeText, jobDescription, lang, userApiKey })
       });
       const data = await resp.json();
-      if (data.prep) {
+      if (data.jobId) {
+        const result = await pollJob(data.jobId);
         setInterviewProgress(100);
-        setInterviewPrep(data.prep);
+        setInterviewPrep(result);
         showToast(lang === "vi" ? "Đã chuẩn bị xong câu hỏi phỏng vấn!" : "Interview prep ready!");
       }
     } catch (e) {
@@ -400,7 +426,7 @@ export default function AppPage() {
 
             {/* Left: QR Area */}
             <div className="w-full md:w-1/2 bg-white flex flex-col items-center justify-center p-10 md:p-12 relative">
-              <div className="absolute top-4 left-4 text-[9px] font-black tracking-widest uppercase text-black/20">Payment Terminal v1.0</div>
+              <div className="absolute top-4 left-4 text-[10px] font-black tracking-widest uppercase text-black/20">Payment Terminal v1.0</div>
               <div className="relative group">
                 <div className="absolute -inset-2 bg-accent/20 rounded-xl blur opacity-0 group-hover:opacity-100 transition duration-500"></div>
                 <Image
@@ -470,7 +496,7 @@ export default function AppPage() {
           <div className="flex items-center gap-3">
             {/* API Status Indicator */}
             {userApiKey && (
-              <div className="hidden md:flex items-center gap-2 border border-accent/20 px-3 py-1 text-[9px] uppercase font-bold text-accent bg-accent/5">
+              <div className="hidden md:flex items-center gap-2 border border-accent/20 px-3 py-1 text-[10px] uppercase font-bold text-accent bg-accent/5">
                 <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
                 User Key Active
               </div>
@@ -507,13 +533,13 @@ export default function AppPage() {
       <main className="flex-1 overflow-hidden">
         {!isWorkspace ? (
           <div className="h-[calc(100vh-56px)] flex items-center justify-center px-6 py-4 overflow-hidden">
-            <div className="max-w-3xl w-full flex flex-col gap-5">
+            <div className="max-w-4xl w-full flex flex-col gap-5">
 
               {/* Header row */}
               <div className="flex items-end justify-between gap-4">
                 <div>
-                  <div className="text-[9px] font-black tracking-[0.25em] uppercase text-accent mb-1.5">ATS Resume Analyzer</div>
-                  <h1 className="font-serif text-3xl font-black leading-tight tracking-tight">
+                  <div className="text-[10px] font-black tracking-[0.25em] uppercase text-accent mb-1.5">ATS Resume Analyzer</div>
+                  <h1 className="font-serif text-5xl font-black leading-tight tracking-tight">
                     {lang === "vi"
                       ? <><span style={{ color: "var(--accent)" }}>Phân tích CV</span> chuyên sâu.</>
                       : <><span style={{ color: "var(--accent)" }}>Analyze</span> your CV deeply.</>
@@ -521,7 +547,7 @@ export default function AppPage() {
                   </h1>
                 </div>
                 <div className="flex items-center gap-3 flex-shrink-0 pb-1">
-                  <div className="flex items-center gap-1.5 text-[8px] uppercase tracking-widest text-neutral/50">
+                  <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-neutral/50">
                     <span className="w-1.5 h-1.5 bg-accent rounded-full animate-pulse" />
                     {usageCount}/2 {lang === "vi" ? "lượt dùng" : "free scans"}
                   </div>
@@ -538,7 +564,7 @@ export default function AppPage() {
               <div className="grid md:grid-cols-2 gap-4">
                 {/* Upload */}
                 <div className="flex flex-col gap-2">
-                  <div className="text-[9px] uppercase tracking-widest font-black text-neutral">{t.step1}</div>
+                  <div className="text-[10px] uppercase tracking-widest font-black text-neutral">{t.step1}</div>
                   <div
                     className={`h-32 border transition-all duration-200 flex flex-col items-center justify-center cursor-pointer ${dragActive ? "border-accent bg-accent/5" : file ? "border-accent/40 bg-accent/5" : "border-border border-dashed hover:border-neutral/50"}`}
                     onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}
@@ -549,13 +575,13 @@ export default function AppPage() {
                         <>
                           <svg className="w-5 h-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="square" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
                           <span className="font-serif italic text-accent text-xs truncate max-w-[200px]">{file.name}</span>
-                          <span className="text-[9px] text-neutral uppercase tracking-wider">{(file.size / 1024).toFixed(0)} KB · Click to change</span>
+                          <span className="text-[10px] text-neutral uppercase tracking-wider">{(file.size / 1024).toFixed(0)} KB · Click to change</span>
                         </>
                       ) : (
                         <>
                           <svg className="w-6 h-6 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeWidth="1" d="M12 4v16m-8-8h16" /></svg>
                           <span className="text-xs font-light">{t.uploadPlaceholder}</span>
-                          <span className="text-[9px] uppercase tracking-wider opacity-40">{t.maxCapacity}</span>
+                          <span className="text-[10px] uppercase tracking-wider opacity-40">{t.maxCapacity}</span>
                         </>
                       )}
                     </div>
@@ -565,8 +591,8 @@ export default function AppPage() {
                 {/* JD */}
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center justify-between">
-                    <div className="text-[9px] uppercase tracking-widest font-black text-neutral">{t.step2}</div>
-                    <span className="text-[9px] text-neutral/40">{jobDescription.length} {t.chars}</span>
+                    <div className="text-[10px] uppercase tracking-widest font-black text-neutral">{t.step2}</div>
+                    <span className="text-[10px] text-neutral/40">{jobDescription.length} {t.chars}</span>
                   </div>
                   <textarea
                     value={jobDescription}
@@ -581,7 +607,7 @@ export default function AppPage() {
               <div className="border border-border bg-surface overflow-hidden">
                 <button
                   onClick={() => setShowApiConfig(!showApiConfig)}
-                  className="w-full px-5 py-2.5 flex items-center justify-between text-[9px] font-black tracking-widest uppercase hover:bg-accent/5 transition-colors"
+                  className="w-full px-5 py-2.5 flex items-center justify-between text-[10px] font-black tracking-widest uppercase hover:bg-accent/5 transition-colors"
                 >
                   <div className="flex items-center gap-2">
                     <span className={`w-1.5 h-1.5 rounded-full ${userApiKey ? "bg-accent animate-pulse" : "bg-neutral/30"}`} />
@@ -596,7 +622,7 @@ export default function AppPage() {
                       value={userApiKey}
                       onChange={(e) => handleSaveApiKey(e.target.value)}
                       placeholder="AIza..."
-                      className="flex-1 bg-white border border-border px-3 py-1.5 text-[10px] text-foreground placeholder:text-neutral/30 focus:outline-none focus:border-accent font-mono"
+                      className="flex-1 bg-background border border-border px-3 py-1.5 text-[10px] text-foreground placeholder:text-neutral/30 focus:outline-none focus:border-accent font-mono"
                     />
                     <button
                       onClick={() => handleSaveApiKey("")}
@@ -639,13 +665,13 @@ export default function AppPage() {
                   <div className="flex flex-col gap-2">
                     <div className="flex items-center justify-between">
                       <div className="text-[10px] uppercase tracking-widest font-black text-accent">Active Version</div>
-                      {!userApiKey && <span className="text-[9px] uppercase text-neutral">{usageCount}/2 Free</span>}
+                      {!userApiKey && <span className="text-[10px] uppercase text-neutral">{usageCount}/2 Free</span>}
                     </div>
                     <div onClick={triggerFileUpload} className="flex items-center gap-3 p-4 border border-accent/20 bg-accent/5 hover:border-accent transition-colors cursor-pointer">
                       <svg className="w-5 h-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="square" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                       <div className="flex-1 min-w-0">
                         <div className="text-xs font-serif italic text-accent truncate">{file?.name}</div>
-                        <div className="text-[9px] uppercase tracking-widest text-neutral">Click to change</div>
+                        <div className="text-[10px] uppercase tracking-widest text-neutral">Click to change</div>
                       </div>
                     </div>
                   </div>
@@ -756,7 +782,7 @@ export default function AppPage() {
                           <div className="mt-6 flex flex-col gap-6">
                             {/* Match Progress */}
                             <div className="flex flex-col gap-2">
-                              <div className="flex justify-between text-[9px] font-black uppercase tracking-widest text-neutral">
+                              <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-neutral">
                                 <span>{t.matchedPercentage}</span>
                                 <span className="text-accent">{Math.round((result.cvKeywords.length / (result.cvKeywords.length + result.missingKeywords.length || 1)) * 100)}%</span>
                               </div>
@@ -771,13 +797,13 @@ export default function AppPage() {
                             {/* Tags Grid */}
                             <div className="flex flex-wrap gap-2">
                               {result.cvKeywords.map((kw, i) => (
-                                <span key={`hit-${i}`} className="px-2 py-1 bg-accent/10 border border-accent/30 text-accent text-[9px] tracking-wider uppercase font-bold flex items-center gap-1.5">
+                                <span key={`hit-${i}`} className="px-2 py-1 bg-accent/10 border border-accent/30 text-accent text-[10px] tracking-wider uppercase font-bold flex items-center gap-1.5">
                                   <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="square" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
                                   {kw}
                                 </span>
                               ))}
                               {result.missingKeywords.map((kw, i) => (
-                                <span key={`miss-${i}`} className="px-2 py-1 bg-negative/5 border border-negative/20 text-negative/60 text-[9px] tracking-wider uppercase font-bold flex items-center gap-1.5">
+                                <span key={`miss-${i}`} className="px-2 py-1 bg-negative/5 border border-negative/20 text-negative/60 text-[10px] tracking-wider uppercase font-bold flex items-center gap-1.5">
                                   <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="square" strokeWidth="3" d="M6 18L18 6M6 6l12 12" /></svg>
                                   {kw}
                                 </span>
@@ -787,7 +813,7 @@ export default function AppPage() {
                             {/* Optimization Tips */}
                             {result.keywordOptimizationTips.length > 0 && (
                               <div className="flex flex-col gap-3 mt-2">
-                                <div className="text-[9px] uppercase tracking-widest text-neutral font-black border-b border-border pb-2">{t.optimizationTips}</div>
+                                <div className="text-[10px] uppercase tracking-widest text-neutral font-black border-b border-border pb-2">{t.optimizationTips}</div>
                                 {result.keywordOptimizationTips.map((tip, i) => (
                                   <div key={i} className="flex gap-4 items-start group">
                                     <div className="w-1.5 h-1.5 rounded-full bg-accent mt-1.5 group-hover:scale-150 transition-transform" />
@@ -852,10 +878,10 @@ export default function AppPage() {
 
                   <div className="p-6 border-t border-border bg-accent/5 flex flex-col gap-2">
 
-                    <button onClick={() => setShowLimitModal(true)} className="w-full py-2 border border-accent/20 text-[9px] uppercase font-black tracking-widest text-accent hover:bg-accent hover:text-background transition-all">
+                    <button onClick={() => setShowLimitModal(true)} className="w-full py-2 border border-accent/20 text-[10px] uppercase font-black tracking-widest text-accent hover:bg-accent hover:text-background transition-all">
                       {userApiKey ? "⚙ MANAGE API KEY" : "⚙ CONFIGURE API KEY"}
                     </button>
-                    <button onClick={() => setShowQr(true)} className="w-full py-2 border border-border text-[9px] uppercase font-black tracking-widest text-neutral hover:border-accent hover:text-accent transition-all">
+                    <button onClick={() => setShowQr(true)} className="w-full py-2 border border-border text-[10px] uppercase font-black tracking-widest text-neutral hover:border-accent hover:text-accent transition-all">
                       ☕ ỦNG HỘ TÁC GIẢ
                     </button>
                   </div>
@@ -885,14 +911,14 @@ export default function AppPage() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleSubmit} disabled={loading} title={t.reScan}
-                    className="px-3 py-1.5 border border-accent/20 bg-accent/5 text-accent text-[9px] font-black tracking-widest uppercase flex items-center gap-2 hover:bg-accent hover:text-background transition-all disabled:opacity-40"
+                    className="px-3 py-1.5 border border-accent/20 bg-accent/5 text-accent text-[10px] font-black tracking-widest uppercase flex items-center gap-2 hover:bg-accent hover:text-background transition-all disabled:opacity-40"
                   >
                     <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="square" strokeWidth="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                     <span className="hidden lg:block">{t.reScan}</span>
                   </button>
                   <button
                     onClick={triggerFileUpload} title={t.uploadNew}
-                    className="px-3 py-1.5 border border-border text-neutral text-[9px] font-black tracking-widest uppercase flex items-center gap-2 hover:border-foreground hover:text-foreground transition-all"
+                    className="px-3 py-1.5 border border-border text-neutral text-[10px] font-black tracking-widest uppercase flex items-center gap-2 hover:border-foreground hover:text-foreground transition-all"
                   >
                     <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="square" strokeWidth="2.5" d="M12 4v16m-8-8h16" /></svg>
                     <span className="hidden lg:block">{t.uploadNew}</span>
@@ -903,10 +929,10 @@ export default function AppPage() {
               <div className="flex-1 overflow-hidden px-4 pt-4">
                 {fileUrl ? (
                   <Suspense fallback={<div className="h-full flex items-center justify-center text-neutral text-[10px] uppercase tracking-widest">{t.loadingAnnotator}</div>}>
-                    <PdfAnnotator 
-                      fileUrl={fileUrl} 
-                      annotations={annotations} 
-                      t={t} 
+                    <PdfAnnotator
+                      fileUrl={fileUrl}
+                      annotations={annotations}
+                      t={t}
                       resumeText={resumeText}
                       jobDescription={jobDescription}
                       lang={lang}
@@ -941,7 +967,7 @@ export default function AppPage() {
                     navigator.clipboard.writeText(coverLetter);
                     showToast(t.toastCopied);
                   }}
-                  className="px-4 py-2 bg-accent text-background text-[9px] font-black uppercase tracking-widest hover:opacity-85 transition-all flex items-center gap-2"
+                  className="px-4 py-2 bg-accent text-background text-[10px] font-black uppercase tracking-widest hover:opacity-85 transition-all flex items-center gap-2"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="square" strokeWidth="2.5" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
                   {t.copyCL}
@@ -969,7 +995,7 @@ export default function AppPage() {
               <span className="text-[8px] uppercase tracking-widest text-neutral/40">
                 {coverLetter.split(/\s+/).filter(Boolean).length} words · {coverLetter.length} chars
               </span>
-              <button onClick={() => setShowCLModal(false)} className="text-[9px] uppercase tracking-widest font-black text-neutral hover:text-foreground transition-colors">
+              <button onClick={() => setShowCLModal(false)} className="text-[10px] uppercase tracking-widest font-black text-neutral hover:text-foreground transition-colors">
                 DONE
               </button>
             </div>
@@ -1003,13 +1029,13 @@ export default function AppPage() {
                         0{i + 1}
                       </span>
                       <div className="flex flex-col gap-2">
-                        <div className="text-[9px] uppercase tracking-widest font-black text-accent/60">{t.rationale}</div>
+                        <div className="text-[10px] uppercase tracking-widest font-black text-accent/60">{t.rationale}</div>
                         <p className="text-[11px] text-neutral italic font-light leading-relaxed">{item.rationale}</p>
                         <h4 className="text-lg font-serif font-black leading-snug text-foreground mt-1">{item.question}</h4>
                       </div>
                     </div>
                     <div className="ml-12 p-5 bg-accent/5 border-l-2 border-accent flex flex-col gap-2">
-                      <div className="text-[9px] uppercase tracking-widest font-black text-accent">{t.answer}</div>
+                      <div className="text-[10px] uppercase tracking-widest font-black text-accent">{t.answer}</div>
                       <p className="text-sm font-light text-foreground/80 leading-[1.7]">{item.answer}</p>
                     </div>
                   </div>
@@ -1019,9 +1045,9 @@ export default function AppPage() {
 
             {/* Bottom bar */}
             <div className="flex-shrink-0 border-t border-border px-6 py-4 flex items-center justify-between bg-surface/30">
-              <button 
+              <button
                 onClick={handleExportExcel}
-                className="text-[9px] uppercase tracking-widest font-black text-accent border border-accent/20 px-4 py-2 hover:bg-accent hover:text-background transition-all flex items-center gap-2"
+                className="text-[10px] uppercase tracking-widest font-black text-accent border border-accent/20 px-4 py-2 hover:bg-accent hover:text-background transition-all flex items-center gap-2"
               >
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="square" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                 {t.exportExcel}
