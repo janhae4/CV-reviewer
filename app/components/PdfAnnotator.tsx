@@ -37,8 +37,11 @@ const TYPE_COLORS = {
 interface Props {
   fileUrl: string;
   annotations: AnnotationHint[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   t: any;
+  resumeText: string;
+  jobDescription: string;
+  lang: string;
+  userApiKey: string;
 }
 
 
@@ -90,14 +93,18 @@ function findQuote(
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function PdfAnnotator({ fileUrl, annotations, t }: Props) {
+export default function PdfAnnotator({ fileUrl, annotations, t, resumeText, jobDescription, lang, userApiKey }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [pages, setPages] = useState<PageRender[]>([]);
   const [loading, setLoading] = useState(true);
   const [userScale, setUserScale] = useState(1.0);
   const [resolvedMarkups, setResolvedMarkups] = useState<ResolvedMarkup[]>([]);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  const [activeIdx, setActiveIdx] = useState<number | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [fixedTexts, setFixedTexts] = useState<Record<number, string>>({});
+  const [isFixing, setIsFixing] = useState<number | null>(null);
+  const [showHeatmap, setShowHeatmap] = useState(false);
 
   // ── PDF rendering + text extraction ──────────────────────────────────────
   const renderPdf = useCallback(async () => {
@@ -204,16 +211,51 @@ export default function PdfAnnotator({ fileUrl, annotations, t }: Props) {
     setUserScale(prev => Math.min(3, Math.max(0.2, +(prev + delta).toFixed(2))));
   };
 
+  const handleMagicFix = async (idx: number, quote: string) => {
+    setIsFixing(idx);
+    try {
+      const res = await fetch("/api/magic-fix", {
+        method: "POST",
+        body: JSON.stringify({
+          quote,
+          resumeText: resumeText,
+          jobDescription: jobDescription,
+          lang: lang,
+          userApiKey: userApiKey
+        })
+      });
+      const data = await res.json();
+      if (data.fixed) {
+        setFixedTexts(prev => ({ ...prev, [idx]: data.fixed }));
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsFixing(null);
+    }
+  };
+
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col gap-3 h-full">
       {/* Toolbar */}
       <div className="flex items-center justify-between border border-border bg-surface px-4 py-2 rounded-sm flex-shrink-0">
-        <span className="text-[10px] uppercase tracking-widest text-neutral font-bold">
-          {pages.length > 0
-            ? `${pages.length} ${t.pages} · ${Math.round(displayScale * 100)}% ${t.zoom}`
-            : t.loading}
-        </span>
+        <div className="flex items-center gap-4">
+          <span className="text-[10px] uppercase tracking-widest text-neutral font-bold">
+            {pages.length > 0
+              ? `${pages.length} ${t.pages} · ${Math.round(displayScale * 100)}% ${t.zoom}`
+              : t.loading}
+          </span>
+          {pages.length > 0 && (
+            <button
+              onClick={() => setShowHeatmap(!showHeatmap)}
+              className={`flex items-center gap-2 px-2 py-1 border text-[9px] uppercase font-black tracking-widest transition-all ${showHeatmap ? "bg-accent text-background border-accent" : "border-border text-neutral hover:border-accent hover:text-accent"}`}
+            >
+              <div className={`w-2 h-2 rounded-full ${showHeatmap ? "bg-background animate-pulse" : "bg-neutral"}`} />
+              {showHeatmap ? t.heatmapActive : t.heatmapInactive}
+            </button>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           <button onClick={() => handleZoom(-0.1)} className="w-7 h-7 border border-border flex items-center justify-center text-neutral hover:text-accent hover:border-accent transition-colors text-lg font-light">−</button>
           <button onClick={() => handleZoom(0.1)} className="w-7 h-7 border border-border flex items-center justify-center text-neutral hover:text-accent hover:border-accent transition-colors text-lg font-light">+</button>
@@ -224,8 +266,9 @@ export default function PdfAnnotator({ fileUrl, annotations, t }: Props) {
       {/* Document Scroll Area */}
       <div
         ref={containerRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden bg-black/40 relative"
-        onMouseLeave={() => setHoveredIdx(null)}
+        className="flex-1 overflow-y-auto overflow-x-hidden bg-black/40 relative h-full"
+        onMouseLeave={() => { if (!activeIdx) setHoveredIdx(null); }}
+        onClick={() => setActiveIdx(null)}
       >
         {loading ? (
           <div className="h-full flex flex-col items-center justify-center gap-4 text-neutral">
@@ -282,21 +325,29 @@ export default function PdfAnnotator({ fileUrl, annotations, t }: Props) {
                           key={i}
                           className="cursor-pointer"
                           onMouseEnter={(e) => {
-                            setHoveredIdx(globalIdx);
-                            const rect = containerRef.current!.getBoundingClientRect();
-                            setTooltipPos({
-                              x: e.clientX - rect.left + (containerRef.current?.scrollLeft ?? 0),
-                              y: e.clientY - rect.top + (containerRef.current?.scrollTop ?? 0),
-                            });
+                            if (activeIdx === null) {
+                              setHoveredIdx(globalIdx);
+                              const rect = containerRef.current!.getBoundingClientRect();
+                              setTooltipPos({
+                                x: e.clientX - rect.left + (containerRef.current?.scrollLeft ?? 0),
+                                y: e.clientY - rect.top + (containerRef.current?.scrollTop ?? 0),
+                              });
+                            }
                           }}
                           onMouseMove={(e) => {
-                            const rect = containerRef.current!.getBoundingClientRect();
-                            setTooltipPos({
-                              x: e.clientX - rect.left + (containerRef.current?.scrollLeft ?? 0),
-                              y: e.clientY - rect.top + (containerRef.current?.scrollTop ?? 0),
-                            });
+                            if (activeIdx === null) {
+                              const rect = containerRef.current!.getBoundingClientRect();
+                              setTooltipPos({
+                                x: e.clientX - rect.left + (containerRef.current?.scrollLeft ?? 0),
+                                y: e.clientY - rect.top + (containerRef.current?.scrollTop ?? 0),
+                              });
+                            }
                           }}
-                          onMouseLeave={() => setHoveredIdx(null)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveIdx(globalIdx === activeIdx ? null : globalIdx);
+                          }}
+                          onMouseLeave={() => { if (activeIdx === null) setHoveredIdx(null); }}
                         >
                           {/* Highlight rect */}
                           <rect
@@ -321,6 +372,32 @@ export default function PdfAnnotator({ fileUrl, annotations, t }: Props) {
                     })}
                   </svg>
 
+                  {/* Content-Aware Heatmap Overlay */}
+                  {showHeatmap && (
+                    <div className="absolute inset-0 pointer-events-none opacity-50 mix-blend-multiply transition-opacity duration-500 overflow-hidden">
+                      <div className="absolute inset-0" style={{
+                        background: [
+                          // 1. Subtle F-Pattern Baseline (Human Psychology)
+                          `radial-gradient(circle at 15% 10%, rgba(255, 77, 77, 0.3) 0%, transparent 25%)`,
+                          `radial-gradient(circle at 12% 40%, rgba(255, 140, 26, 0.2) 0%, transparent 20%)`,
+                          `radial-gradient(circle at 10% 80%, rgba(255, 214, 51, 0.1) 0%, transparent 20%)`,
+
+                          // 2. Dynamic Content Peaks (Actual CV Data found by AI)
+                          ...pageMarkups.map(m => {
+                            const cx = ((m.x + m.w / 2) / naturalWidth) * 100;
+                            const cy = ((m.y + m.h / 2) / naturalHeight) * 100;
+                            // Strengths (ok) are the hottest points
+                            const color = m.type === 'ok' 
+                              ? 'rgba(255, 77, 77, 1)' 
+                              : (m.type === 'warning' ? 'rgba(255, 140, 26, 0.8)' : 'rgba(255, 214, 51, 0.5)');
+                            const size = m.type === 'ok' ? '25%' : '18%';
+                            return `radial-gradient(circle at ${cx.toFixed(1)}% ${cy.toFixed(1)}%, ${color} 0%, transparent ${size})`;
+                          })
+                        ].join(', ')
+                      }} />
+                    </div>
+                  )}
+
                   {/* Page badge */}
                   <div className="absolute bottom-2 right-2 bg-black/70 border border-border text-neutral text-[10px] px-2 py-0.5 uppercase tracking-widest font-bold z-20">
                     P.{pageNum}
@@ -331,11 +408,14 @@ export default function PdfAnnotator({ fileUrl, annotations, t }: Props) {
           </div>
         )}
 
-        {/* Hover tooltip — full suggestion text, no type chip */}
-        {hoveredIdx !== null && resolvedMarkups[hoveredIdx] && (() => {
-          const m = resolvedMarkups[hoveredIdx];
+        {/* Hover/Active tooltip */}
+        {(hoveredIdx !== null || activeIdx !== null) && (() => {
+          const shownIdx = activeIdx !== null ? activeIdx : hoveredIdx;
+          if (shownIdx === null) return null;
+          
+          const m = resolvedMarkups[shownIdx];
           const colors = TYPE_COLORS[m.type] || TYPE_COLORS.error;
-          const TOOLTIP_W = 280;
+          const TOOLTIP_W = 320;
           const containerW = containerRef.current?.clientWidth ?? 600;
           const containerH = containerRef.current?.clientHeight ?? 400;
           const scrollTop = containerRef.current?.scrollTop ?? 0;
@@ -346,25 +426,89 @@ export default function PdfAnnotator({ fileUrl, annotations, t }: Props) {
           let top = tooltipPos.y + 10;
           if (top + 180 > containerH + scrollTop) top = tooltipPos.y - 190;
 
+          const quote = annotations.find((a: any) => a.suggestion === m.label)?.quote || "";
+          const hasFixed = fixedTexts[shownIdx];
+
           return (
-            <div className="absolute z-50 pointer-events-none" style={{ left, top, width: TOOLTIP_W }}>
+            <div 
+              className={`absolute z-50 ${activeIdx !== null ? 'pointer-events-auto' : 'pointer-events-none'}`} 
+              style={{ left, top, width: TOOLTIP_W }}
+            >
               <div
-                className="rounded-sm border p-3 flex flex-col gap-2"
+                className="rounded-sm border p-4 flex flex-col gap-3"
                 style={{
                   backgroundColor: "#0d0d0d",
                   borderColor: colors.stroke,
-                  boxShadow: `0 6px 32px 0 ${colors.stroke}44`,
+                  boxShadow: `0 12px 48px 0 rgba(0,0,0,0.8), 0 0 20px 0 ${colors.stroke}44`,
                 }}
               >
                 {/* Quote chip */}
-                <div className="text-[9px] font-mono opacity-50 border border-white/10 px-1.5 py-0.5 rounded-sm line-clamp-2" style={{ color: colors.stroke }}>
-                  &quot;{resolvedMarkups[hoveredIdx] && annotations.find(a => a.suggestion === m.label)?.quote}&quot;
+                <div className="text-[9px] font-mono opacity-50 border border-white/10 px-1.5 py-1 rounded-sm line-clamp-2" style={{ color: colors.stroke }}>
+                  &quot;{quote}&quot;
                 </div>
 
                 {/* Suggestion text */}
-                <p className="text-xs leading-relaxed break-words text-white/80">
-                  {m.label}
-                </p>
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-neutral">{t.optimizationHint}</span>
+                    {activeIdx === null && <span className="text-[8px] text-accent animate-pulse">{t.clickToFix}</span>}
+                  </div>
+                  <p className="text-xs leading-relaxed text-white/90">
+                    {m.label}
+                  </p>
+                </div>
+
+                {/* Magic Fix Section */}
+                {activeIdx !== null && (
+                  <div className="mt-2 pt-3 border-t border-white/10 flex flex-col gap-3 animate-entry">
+                    {!hasFixed ? (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleMagicFix(shownIdx, quote);
+                        }}
+                        disabled={isFixing === shownIdx}
+                        className="w-full py-2 bg-accent text-background text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all flex items-center justify-center gap-2"
+                      >
+                        {isFixing === shownIdx ? (
+                          <><span className="w-3 h-3 border-2 border-background border-t-transparent rounded-full animate-spin" /> {t.magicFixWorking}</>
+                        ) : (
+                          <>{t.magicFixBtn}</>
+                        )}
+                      </button>
+                    ) : (
+                      <div className="flex flex-col gap-2 bg-white/5 p-3 rounded-sm border border-accent/20">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[8px] font-black text-accent uppercase tracking-widest">{t.optimizedVersion}</span>
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigator.clipboard.writeText(hasFixed);
+                            }}
+                            className="text-accent text-[8px] font-black hover:underline"
+                          >
+                            {t.copyText}
+                          </button>
+                        </div>
+                        <p className="text-xs italic text-accent leading-relaxed font-light">
+                          {hasFixed}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {activeIdx !== null && (
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveIdx(null);
+                    }}
+                    className="mt-1 text-[9px] text-neutral hover:text-white uppercase tracking-tighter self-center"
+                  >
+                    {t.close}
+                  </button>
+                )}
               </div>
             </div>
           );
@@ -376,6 +520,7 @@ export default function PdfAnnotator({ fileUrl, annotations, t }: Props) {
         <div className="flex flex-wrap gap-x-4 gap-y-1.5 flex-shrink-0 pb-4 justify-center">
           {resolvedMarkups.map((m, i) => {
             const colors = TYPE_COLORS[m.type];
+            const legendLabel = m.type === 'error' ? t.typeCritical : (m.type === 'ok' ? t.typeStrength : t.typeSuggestion);
             return (
               <div
                 key={i}
@@ -388,7 +533,7 @@ export default function PdfAnnotator({ fileUrl, annotations, t }: Props) {
                   className="w-4 h-4 rounded-sm flex-shrink-0 flex items-center justify-center text-[8px] font-black"
                   style={{ backgroundColor: colors.badgeBg, color: colors.text }}
                 >{i + 1}</span>
-                <span>{colors.legendLabel}</span>
+                <span>{legendLabel}</span>
               </div>
             );
           })}

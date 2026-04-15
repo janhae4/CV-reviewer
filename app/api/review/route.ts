@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     console.log(`[Review] Visitor: ${visitorId || "unknown"} | Key: ${userApiKey ? (userApiKey === "DEV_BYPASS" ? "DEV_BYPASS" : "USER_KEY") : "SYSTEM_KEY"}`);
     
     const feedback = await reviewResume(text, jobDescription, lang, userApiKey);
-    return NextResponse.json(feedback, { status: 200 });
+    return NextResponse.json({ ...feedback, extractedText: text }, { status: 200 });
   } catch (error) {
     console.error("API Error:", error);
     return NextResponse.json(

@@ -28,6 +28,9 @@ export const translations = {
     noKeywordsMatched: "No keywords matched.",
     noMissingKeywords: "No missing critical keywords.",
     loadingAnnotator: "Loading annotator...",
+    keywordGapAnalysis: "Keyword Gap Analysis",
+    optimizationTips: "Optimization Tips",
+    matchedPercentage: "Match Rate",
     faqs: [
       { q: "How does it work?", a: "Our engine deeply parses your CV against the provided job description, cross-referencing critical keywords and evaluating formatting standard compliance." },
       { q: "What is an ATS Score?", a: "A probabilistic measurement of how likely your resume is to pass automated filter thresholds used by modern HR departments." },
@@ -51,8 +54,35 @@ export const translations = {
     enterApiKey: "Enter your Gemini API Key",
     apiKeyPlaceholder: "Paste your API Key here...",
     useSystemKey: "Use System Credits",
-    proPlan: "Upgrade to Pro"
+    proPlan: "Upgrade to Pro",
+    generateCL: "Generate Cover Letter",
+    clTitle: "Smart AI Cover Letter",
+    copyCL: "Copy to clipboard",
+    clGenerating: "Composing...",
+    showApiLabel: "Advanced: Use your own API Key",
+    hideApiLabel: "Hide API Settings",
+    toastCopied: "Copied to clipboard!",
+    prepareInterview: "Prepare Interview",
+    interviewTitle: "Interview Q&A Prep",
+    rationale: "Rationale",
+    answer: "Optimal Answer",
+    predictingQuestions: "Predicting questions...",
+    exportExcel: "Export to Excel",
+    heatmapActive: "Heatmap Active",
+    heatmapInactive: "Recruiter Heatmap",
+    optimizationHint: "Optimization Hint",
+    clickToFix: "CLICK TO FIX",
+    magicFixBtn: "MAGIC BULLET POINT FIX",
+    magicFixWorking: "Working...",
+    optimizedVersion: "Optimized Version",
+    copyText: "COPY TEXT",
+    close: "Close",
+    typeCritical: "Critical",
+    typeStrength: "Strength",
+    typeSuggestion: "Suggestion"
   },
+
+
   vi: {
     title: "Resume Engine",
     subtitle: "Khám phá những gì thuật toán nhìn thấy. Tải lên tài liệu và mô tả công việc của bạn để giải mã cơ chế khớp lệnh.",
@@ -82,6 +112,9 @@ export const translations = {
     noKeywordsMatched: "Không tìm thấy từ khóa phù hợp.",
     noMissingKeywords: "Không có từ khóa quan trọng nào bị thiếu.",
     loadingAnnotator: "Đang tải trình chú thích...",
+    keywordGapAnalysis: "Phân tích khoảng cách từ khóa",
+    optimizationTips: "Gợi ý tối ưu hóa",
+    matchedPercentage: "Tỷ lệ khớp",
     faqs: [
       { q: "Nó hoạt động như thế nào?", a: "Công cụ của chúng tôi phân tích sâu CV của bạn so với mô tả công việc được cung cấp, tham chiếu chéo các từ khóa quan trọng và đánh giá sự tuân thủ các tiêu chuẩn định dạng." },
       { q: "Điểm ATS là gì?", a: "Một phép đo xác suất về khả năng sơ yếu lý lịch của bạn vượt qua các ngưỡng lọc tự động được sử dụng bởi các bộ phận nhân sự hiện đại." },
@@ -105,8 +138,35 @@ export const translations = {
     enterApiKey: "Nhập API Key Gemini của bạn",
     apiKeyPlaceholder: "Dán API Key vào đây...",
     useSystemKey: "Dùng lượt miễn phí",
-    proPlan: "Nâng cấp gói PRO"
+    proPlan: "Nâng cấp gói PRO",
+    generateCL: "Tạo Cover Letter",
+    clTitle: "AI Cover Letter Thông Minh",
+    copyCL: "Sao chép nội dung",
+    clGenerating: "Đang soạn thảo...",
+    showApiLabel: "Nâng cao: Dùng API Key riêng",
+    hideApiLabel: "Ẩn cài đặt API",
+    toastCopied: "Đã sao chép vào bộ nhớ tạm!",
+    prepareInterview: "Chuẩn bị phỏng vấn",
+    interviewTitle: "Luyện phỏng vấn AI",
+    rationale: "Lý do hỏi",
+    answer: "Gợi ý trả lời",
+    predictingQuestions: "Đang dự đoán câu hỏi...",
+    exportExcel: "Xuất file Excel",
+    heatmapActive: "Đã bật Heatmap",
+    heatmapInactive: "Bản đồ nhiệt HR",
+    optimizationHint: "Gợi ý tối ưu",
+    clickToFix: "NHẤN ĐỂ SỬA",
+    magicFixBtn: "TỐI ƯU CÂU CHỮ ✨",
+    magicFixWorking: "Đang xử lý...",
+    optimizedVersion: "Bản đã tối ưu",
+    copyText: "SAO CHÉP",
+    close: "Đóng",
+    typeCritical: "Nghiêm trọng",
+    typeStrength: "Điểm mạnh",
+    typeSuggestion: "Đề xuất"
   }
+
+
 };
 
 export type Language = 'en' | 'vi';
