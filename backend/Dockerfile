@@ -2,9 +2,13 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-COPY package.json ./
-COPY package-lock.json* ./
+# Debug: Xem Docker dang dung dau
+RUN pwd && ls -la
+
+# Copy tat ca file json o thu muc hien tai
+COPY *.json ./
 RUN npm install
+
 COPY . .
 RUN npm run build
 
