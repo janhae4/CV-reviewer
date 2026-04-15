@@ -2,17 +2,15 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Copy toan bo nhung gi Docker dang co tiep can
+# Copy toan bo repo
 COPY . .
 
-# Tim xem package.json dang o dau
-RUN find . -maxdepth 2 -name "package.json"
-
-# Neu Railway dang dua vao context la ca repo, package.json se o ./backend/package.json
-# Chung ta se dua no ra thu muc goc cua WORKDIR
-RUN if [ -f "./backend/package.json" ]; then \
-    echo "Found at ./backend/package.json, moving files..." && \
-    cp -r ./backend/* . ; \
+# Neu dang o thu muc goc (co thu muc backend), chung ta se di chuyen vao trong backend
+# va xoa bo thu muc frontend de tranh xung dot build
+RUN if [ -d "./backend" ]; then \
+    echo "Transitioning to backend context..." && \
+    cp -r ./backend/* . && \
+    rm -rf ./backend ./frontend ; \
     fi
 
 RUN npm install
