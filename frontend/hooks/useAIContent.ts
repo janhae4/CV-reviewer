@@ -46,7 +46,9 @@ export function useAIContent({ resumeText, jobDescription, lang, userApiKey }: U
         const res = await connectSSE(data.jobId);
         setCoverLetter(res);
         setClProgress(100);
+        return res;
       }
+      return null;
     } catch (e) {
       console.error(e);
     } finally {
@@ -71,7 +73,9 @@ export function useAIContent({ resumeText, jobDescription, lang, userApiKey }: U
         const res = await connectSSE(data.jobId);
         setInterviewPrep(res);
         setInterviewProgress(100);
+        return res;
       }
+      return null;
     } catch (e) {
       console.error(e);
     } finally {

@@ -3,7 +3,7 @@ import { useState, lazy, Suspense, useRef, useEffect, useReducer } from "react";
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import * as XLSX from 'xlsx';
 import { motion, AnimatePresence } from "motion/react";
-import { FiRefreshCw, FiFilePlus, FiEdit3, FiFileText, FiDownload, FiMoreHorizontal, FiSettings, FiCoffee } from "react-icons/fi";
+import { FiRefreshCw, FiFilePlus, FiEdit3, FiFileText, FiDownload, FiMoreHorizontal, FiSettings, FiCoffee, FiMic } from "react-icons/fi";
 
 // Components
 import TopNav from "@/components/TopNav";
@@ -73,6 +73,7 @@ export default function AppPage() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [toast, setToast] = useState("");
   const [isExporting, setIsExporting] = useState(false);
+  const [currentId, setCurrentId] = useState<string | null>(null);
 
   // UI State
   const [ui, dispatch] = useReducer(uiReducer, {
@@ -147,6 +148,15 @@ export default function AppPage() {
     const newHistory = [entry, ...history.slice(0, 9)];
     setHistory(newHistory);
     localStorage.setItem("resume_history", JSON.stringify(newHistory));
+    setCurrentId(id);
+  };
+
+  const updateHistoryContent = (id: string, updates: Partial<HistoryEntry>) => {
+    setHistory(prev => {
+      const updated = prev.map(h => h.id === id ? { ...h, ...updates } : h);
+      localStorage.setItem("resume_history", JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const handleRestoreHistory = async (entry: HistoryEntry) => {
@@ -165,6 +175,10 @@ export default function AppPage() {
       setFileUrl(null);
     }
 
+    setCoverLetter(entry.coverLetter || "");
+    setInterviewPrep(entry.interviewPrep || []);
+    setCurrentId(entry.id);
+
     dispatch({ type: 'SET_MODAL', modal: 'isWorkspace', value: true });
     dispatch({ type: 'SET_MODAL', modal: 'showHistoryModal', value: false });
     showToast(
@@ -179,7 +193,7 @@ export default function AppPage() {
     if (fileUrl) URL.revokeObjectURL(fileUrl);
     setFile(f);
     setFileUrl(f.type === "application/pdf" ? URL.createObjectURL(f) : null);
-    if (ui.isWorkspace) { resetAnalysis(); resetAIContent(); }
+    if (ui.isWorkspace) { resetAnalysis(); resetAIContent(); setCurrentId(null); }
   };
 
   const onHandleSubmit = (opts = {}) => {
@@ -234,6 +248,7 @@ export default function AppPage() {
           setFile(null); 
           if (fileUrl) URL.revokeObjectURL(fileUrl);
           setFileUrl(null); 
+          setCurrentId(null);
           dispatch({ type: 'SET_MODAL', modal: 'isWorkspace', value: false }); 
         }}
         onShowHistory={() => dispatch({ type: 'SET_MODAL', modal: 'showHistoryModal', value: true })}
@@ -289,21 +304,27 @@ export default function AppPage() {
                   <ActionButtons
                     onGenerateCL={async () => { 
                       dispatch({ type: 'SET_MODAL', modal: 'showCLModal', value: true });
-                      await generateCoverLetter(); 
-                      showToast(t.toastCLSuccess);
+                      if (!coverLetter && !isGeneratingCL) {
+                        const cl = await generateCoverLetter();
+                        if (cl && currentId) updateHistoryContent(currentId, { coverLetter: cl });
+                        showToast(t.toastCLSuccess);
+                      }
                     }} 
                     isGeneratingCL={isGeneratingCL} clProgress={clProgress} hasCL={!!coverLetter}
                     onGenerateInterview={async () => { 
                       dispatch({ type: 'SET_MODAL', modal: 'showInterviewModal', value: true });
-                      await generateInterviewPrep(); 
-                      showToast(t.toastInterviewSuccess);
+                      if (interviewPrep.length === 0 && !isGeneratingInterview) {
+                        const prep = await generateInterviewPrep();
+                        if (prep && currentId) updateHistoryContent(currentId, { interviewPrep: prep });
+                        showToast(t.toastInterviewSuccess);
+                      }
                     }} 
                     isGeneratingInterview={isGeneratingInterview} interviewProgress={interviewProgress} hasInterview={interviewPrep.length > 0}
                     t={t} lang={lang}
                   />
                   <div className="px-6 py-4 border-t border-border bg-surface flex items-center justify-center gap-8">
-                    <button onClick={() => dispatch({ type: 'SET_MODAL', modal: 'showLimitModal', value: true })} className="text-[9px] uppercase font-black tracking-[0.3em] text-accent/60 hover:text-accent transition-colors flex items-center gap-2">
-                      <FiSettings /> {t.configApp}
+                    <button onClick={() => dispatch({ type: 'SET_MODAL', modal: 'showLimitModal', value: true })} className="text-[9px] uppercase font-black tracking-[0.3em] overflow-hidden whitespace-nowrap text-accent/60 hover:text-accent transition-colors flex items-center gap-2">
+                      <FiSettings /> {(usageCount >= 2 && !userApiKey) ? t.configAppLimit : t.configAppNormal}
                     </button>
                     <div className="w-1 h-1 rounded-full bg-border" />
                     <button onClick={() => dispatch({ type: 'SET_MODAL', modal: 'showQr', value: true })} className="text-[9px] uppercase font-black tracking-[0.3em] text-neutral/40 hover:text-neutral transition-colors flex items-center gap-2">
@@ -387,16 +408,33 @@ export default function AppPage() {
       <AnimatePresence>
         {ui.showCLModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[110] bg-background/90 backdrop-blur-md flex items-center justify-center p-6 text-foreground">
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="max-w-5xl w-full max-h-[90vh] bg-background border border-border flex flex-col shadow-2xl overflow-hidden">
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="max-w-3xl w-full max-h-[85vh] bg-background border border-border flex flex-col shadow-2xl overflow-hidden">
               <div className="p-6 border-b border-border bg-surface flex items-center justify-between">
                 <h3 className="font-serif font-black text-xl uppercase tracking-tight">{t.clTitle}</h3>
                 <div className="flex gap-2">
-                  <button onClick={() => { navigator.clipboard.writeText(coverLetter); showToast(t.toastCopied); }} disabled={isGeneratingCL} className="px-4 py-2 bg-accent text-background text-[10px] font-black uppercase tracking-widest disabled:opacity-30">Copy</button>
-                  <button onClick={() => dispatch({ type: 'SET_MODAL', modal: 'showCLModal', value: false })} className="px-3 py-2 border border-border text-neutral hover:text-negative">✕</button>
+                  <button 
+                    onClick={async () => {
+                      const cl = await generateCoverLetter();
+                      if (cl && currentId) updateHistoryContent(currentId, { coverLetter: cl });
+                      showToast(t.toastCLSuccess);
+                    }}
+                    disabled={isGeneratingCL}
+                    className="h-9 border border-accent/20 bg-surface px-4 hover:bg-accent hover:text-background transition-all flex items-center gap-2 text-[9px] font-black tracking-[0.2em] uppercase disabled:opacity-30"
+                  >
+                    <FiRefreshCw className={isGeneratingCL ? 'animate-spin' : ''} /> {lang === 'vi' ? 'TẠO LẠI' : 'REGENERATE'}
+                  </button>
+                  <button 
+                    onClick={() => { navigator.clipboard.writeText(coverLetter); showToast(t.toastCopied); }} 
+                    disabled={isGeneratingCL || !coverLetter} 
+                    className="h-9 border border-border bg-surface px-4 hover:border-accent hover:bg-accent hover:text-black transition-all flex items-center gap-2 text-[9px] font-black tracking-[0.2em] uppercase disabled:opacity-30"
+                  >
+                    {lang === 'vi' ? 'SAO CHÉP' : 'COPY'}
+                  </button>
+                  <button onClick={() => dispatch({ type: 'SET_MODAL', modal: 'showCLModal', value: false })} className="px-3 py-2 border border-border text-neutral hover:text-negative ml-2">✕</button>
                 </div>
               </div>
               
-              <div className="flex-1 overflow-y-auto p-10 custom-scrollbar">
+              <div className="flex-1 overflow-hidden p-10 custom-scrollbar">
                 {isGeneratingCL ? (
                   <div className="flex flex-col gap-6">
                     <div className="h-8 w-1/3 animate-shimmer rounded-sm" />
@@ -409,11 +447,32 @@ export default function AppPage() {
                     <div className="h-4 w-full animate-shimmer rounded-sm mt-4" />
                     <div className="h-4 w-[85%] animate-shimmer rounded-sm" />
                   </div>
+                ) : !coverLetter ? (
+                  <div className="h-full min-h-[400px] flex flex-col items-center justify-center gap-6 border-2 border-dashed border-border rounded-xl">
+                    <FiFileText className="text-6xl text-neutral opacity-20" />
+                    <div className="text-center">
+                      <p className="text-neutral mb-4 uppercase tracking-[0.2em] font-black text-xs">{lang === 'vi' ? 'Chưa có nội dung Cover Letter' : 'No Cover Letter generated yet'}</p>
+                      <button 
+                        onClick={async () => {
+                          const cl = await generateCoverLetter();
+                          if (cl && currentId) updateHistoryContent(currentId, { coverLetter: cl });
+                          showToast(t.toastCLSuccess);
+                        }}
+                        className="px-10 py-4 bg-accent text-background font-black uppercase tracking-widest hover:scale-105 transition-transform shadow-xl"
+                      >
+                        {t.generateCL}
+                      </button>
+                    </div>
+                  </div>
                 ) : (
                   <textarea 
                     value={coverLetter} 
-                    onChange={e => setCoverLetter(e.target.value)} 
-                    className="w-full h-full min-h-[500px] bg-transparent text-foreground font-light text-[17px] leading-relaxed resize-none focus:outline-none" 
+                    onChange={e => {
+                      const val = e.target.value;
+                      setCoverLetter(val);
+                      if (currentId) updateHistoryContent(currentId, { coverLetter: val });
+                    }} 
+                    className="w-full h-full min-h-[500px] overflow-y-auto bg-transparent text-foreground font-light text-[17px] leading-relaxed resize-none focus:outline-none custom-scrollbar" 
                   />
                 )}
               </div>
@@ -429,7 +488,21 @@ export default function AppPage() {
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="max-w-3xl w-full max-h-[85vh] bg-background border border-border flex flex-col shadow-2xl">
               <div className="p-6 border-b border-border bg-surface flex items-center justify-between">
                 <h3 className="font-serif font-black text-xl uppercase tracking-tight">{t.interviewTitle}</h3>
-                <button onClick={() => dispatch({ type: 'SET_MODAL', modal: 'showInterviewModal', value: false })} className="px-3 py-2 border border-border text-neutral hover:text-negative">✕</button>
+                <div className="flex items-center gap-2">
+                  <button onClick={handleExportExcel} disabled={isGeneratingInterview || interviewPrep.length === 0} className="h-9 border border-accent/20 bg-surface px-4 hover:bg-accent hover:text-background transition-all flex items-center gap-2 text-[9px] font-black tracking-[0.2em] uppercase disabled:opacity-30">{lang === 'vi' ? 'Xuất Excel' : 'Excel'}</button>
+                  <button 
+                    onClick={async () => {
+                      const prep = await generateInterviewPrep();
+                      if (prep && currentId) updateHistoryContent(currentId, { interviewPrep: prep });
+                      showToast(t.toastInterviewSuccess);
+                    }}
+                    disabled={isGeneratingInterview}
+                    className="h-9 border border-positive/20 bg-surface px-4 hover:bg-positive hover:text-black transition-all flex items-center gap-2 text-[9px] font-black tracking-[0.2em] uppercase disabled:opacity-30"
+                  >
+                    <FiRefreshCw className={isGeneratingInterview ? 'animate-spin' : ''} /> {lang === 'vi' ? 'TẠO LẠI' : 'REGENERATE'}
+                  </button>
+                  <button onClick={() => dispatch({ type: 'SET_MODAL', modal: 'showInterviewModal', value: false })} className="px-3 py-2 border border-border text-neutral hover:text-negative ml-2">✕</button>
+                </div>
               </div>
               <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
                 {isGeneratingInterview ? (
@@ -446,6 +519,23 @@ export default function AppPage() {
                         <div className="ml-11 h-20 bg-border/20 animate-shimmer" />
                       </div>
                     ))}
+                  </div>
+                ) : interviewPrep.length === 0 ? (
+                  <div className="h-full min-h-[400px] flex flex-col items-center justify-center gap-6 border-2 border-dashed border-border rounded-xl">
+                    <FiMic className="text-6xl text-neutral opacity-20" />
+                    <div className="text-center">
+                      <p className="text-neutral mb-4 uppercase tracking-[0.2em] font-black text-xs">{lang === 'vi' ? 'Chưa có bộ câu hỏi phỏng vấn' : 'No interview questions generated yet'}</p>
+                      <button 
+                        onClick={async () => {
+                          const prep = await generateInterviewPrep();
+                          if (prep && currentId) updateHistoryContent(currentId, { interviewPrep: prep });
+                          showToast(t.toastInterviewSuccess);
+                        }}
+                        className="px-10 py-4 bg-positive text-background font-black uppercase tracking-widest hover:scale-105 transition-transform shadow-xl"
+                      >
+                        {t.prepareInterview}
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-10">
@@ -468,9 +558,8 @@ export default function AppPage() {
                   </div>
                 )}
               </div>
-              <div className="p-6 border-t border-border bg-surface flex justify-between">
-                <button onClick={handleExportExcel} disabled={isGeneratingInterview} className="text-[10px] font-black uppercase text-accent border border-accent/20 px-4 py-2 hover:bg-accent hover:text-background disabled:opacity-20">{t.exportExcel}</button>
-                <button onClick={() => dispatch({ type: 'SET_MODAL', modal: 'showInterviewModal', value: false })} className="text-[10px] font-black uppercase text-neutral">Close</button>
+              <div className="p-6 border-t border-border bg-surface flex justify-end">
+                <button onClick={() => dispatch({ type: 'SET_MODAL', modal: 'showInterviewModal', value: false })} className="text-[10px] font-black uppercase text-neutral hover:text-foreground transition-colors">Close</button>
               </div>
             </motion.div>
           </motion.div>

@@ -22,4 +22,6 @@ export interface HistoryEntry {
   resumeText: string;
   jobDescription: string;
   lang: string;
+  coverLetter?: string;
+  interviewPrep?: any[];
 }
