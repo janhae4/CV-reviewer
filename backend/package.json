@@ -10,8 +10,9 @@
     "worker:prod": "node dist/scripts/worker.js"
   },
   "dependencies": {
-    "@google/genai": "^1.9.0",
+    "@google/genai": "^1.50.1",
     "bullmq": "^5.74.1",
+    "compute-cosine-similarity": "^1.1.0",
     "cors": "^2.8.5",
     "dotenv": "^17.4.2",
     "express": "^4.21.0",
