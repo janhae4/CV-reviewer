@@ -1,6 +1,9 @@
 import { NextRequest } from "next/server";
 
-const BACKEND_URL = process.env.INTERNAL_BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
+import { getBackendUrl } from "@/lib/config";
+
+const BACKEND_URL = getBackendUrl();
+
 
 export const dynamic = 'force-dynamic';
 
