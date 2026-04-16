@@ -22,7 +22,7 @@ export const reviewResume = async (
   const sanitizedCV = resumeText.slice(0, 100000); 
 
   const response = await aiClient.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: "gemini-1.5-flash",
     contents: `ROLE: ATS Resume Reviewer.
 LANGUAGE: ${languageName}
 
@@ -103,7 +103,7 @@ export const generateCoverLetter = async (
   const sanitizedCV = resumeText.slice(0, 30000);
 
   const response = await aiClient.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: "gemini-1.5-flash",
     contents: `You are an expert career coach. 
 Task: Write a highly professional and persuasive cover letter based on the following data.
 Language: ${languageName}
@@ -143,7 +143,7 @@ export const generateInterviewPrep = async (
   const sanitizedCV = resumeText.slice(0, 30000);
 
   const response = await aiClient.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: "gemini-1.5-flash",
     contents: `You are an expert interviewer and career coach.
 Task: Predict the most challenging interview questions that would be asked to this candidate for this specific job, and provide optimal answers.
 Language: ${languageName}
@@ -200,7 +200,7 @@ export const magicFixBulletPoint = async (
     : ai;
 
   const response = await aiClient.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: "gemini-1.5-flash",
     contents: `You are a professional resume writer.
 Task: Rewrite the following bullet point from a CV to be more impactful and better aligned with the provided Job Description.
 Use the formula: [Impactful Action Verb] + [Specific Task/Responsibility] + [Measurable Result/Outcome].

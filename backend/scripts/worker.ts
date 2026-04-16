@@ -7,7 +7,10 @@ import path from "path";
 dotenv.config();
 
 const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
-const connection = new IORedis(REDIS_URL, { maxRetriesPerRequest: null });
+const connection = new IORedis(REDIS_URL, { 
+  maxRetriesPerRequest: null,
+  tls: REDIS_URL.startsWith("rediss://") ? {} : undefined,
+});
 
 console.log("🚀 Worker process started...");
 
