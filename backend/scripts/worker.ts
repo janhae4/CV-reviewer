@@ -18,29 +18,33 @@ const worker = new Worker(
   "review-queue",
   async (job: Job) => {
     const { type, ...data } = job.data;
-    console.log(`[Worker] Processing ${type} job ${job.id}...`);
+    console.log(`[Worker] 📥 Received ${type} job: ${job.id}`);
 
     try {
       let result;
       if (type === "review") {
+        console.log(`[Worker] 🔍 Analyzing resume for job ${job.id}...`);
         result = await reviewResume(data.text, data.jobDescription, data.lang, data.userApiKey);
-        // Include extracted text for review jobs
         result = { ...result, extractedText: data.text };
       } else if (type === "cover-letter") {
+        console.log(`[Worker] 📝 Generating cover letter for job ${job.id}...`);
         result = await generateCoverLetter(data.resumeText, data.jobDescription, data.lang, data.userApiKey);
       } else if (type === "interview") {
+        console.log(`[Worker] 🎙️ Generating interview prep for job ${job.id}...`);
         result = await generateInterviewPrep(data.resumeText, data.jobDescription, data.lang, data.userApiKey);
       } else if (type === "magic-fix") {
+        console.log(`[Worker] ✨ Applying magic fix for job ${job.id}...`);
         result = await magicFixBulletPoint(data.quote, data.resumeText, data.jobDescription, data.lang, data.userApiKey);
       }
       
       const resultKey = `result:${job.id}`;
+      console.log(`[Worker] 💾 Saving result to Redis: ${resultKey}`);
       await connection.set(resultKey, JSON.stringify(result), "EX", 600);
       
-      console.log(`[Worker] Job ${job.id} completed.`);
+      console.log(`[Worker] ✅ Job ${job.id} finished successfully.`);
       return result;
-    } catch (error) {
-      console.error(`[Worker] Error in job ${job.id}:`, error);
+    } catch (error: any) {
+      console.error(`[Worker] ❌ FATAL ERROR in job ${job.id}:`, error);
       throw error;
     }
   },
@@ -49,3 +53,18 @@ const worker = new Worker(
     concurrency: 5 
   }
 );
+
+worker.on("failed", (job, err) => {
+  console.error(`[Worker] ⚠️ Job ${job?.id} failed with error:`, err.message);
+});
+
+worker.on("error", (err) => {
+  console.error(`[Worker] 🛑 Worker error:`, err.message);
+});
+
+// Heartbeat to keep logs alive and prove worker is running
+setInterval(() => {
+  const time = new Date().toLocaleTimeString();
+  console.log(`[Worker Heartbeat] Alive at ${time} - Waiting for jobs...`);
+}, 30000);
+
