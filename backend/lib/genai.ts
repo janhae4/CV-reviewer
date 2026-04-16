@@ -19,8 +19,8 @@ const DEFAULTS = {
   EMBED_LIMIT: 5000
 };
 
-const defaultAi = new GoogleGenAI({ 
-  apiKey: process.env.GEMINI_API_KEY || "" 
+const defaultAi = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY || ""
 });
 
 /**
@@ -36,7 +36,7 @@ const getAiClient = (providedApiKey?: string) => {
 /**
  * Safely parses JSON from AI response, removing markdown blocks and handling whitespace.
  */
-const parseJsonFromAI = <T>(text: string, defaultValue: T): T => {
+export const parseJsonFromAI = <T>(text: string, defaultValue: T): T => {
   try {
     const cleaned = text.replace(/```json?\n?/gi, "").replace(/```/g, "").trim();
     const startChar = cleaned.startsWith("[") ? "[" : "{";
@@ -57,19 +57,19 @@ const parseJsonFromAI = <T>(text: string, defaultValue: T): T => {
 /**
  * Sanitizes input text to prevent prompt injection and handle limits.
  */
-const sanitize = (text: string | null | undefined, limit: number): string => {
+export const sanitize = (text: string | null | undefined, limit: number): string => {
   return (text || "").slice(0, limit).replace(/<|>(?!\/)/g, ""); // Basic cleanup
 };
 
 /**
  * Normalization helper for better semantic matching
  */
-const normalizeText = (text: string) => {
-    return text
-      .toLowerCase()
-      .replace(/[^\p{L}\p{N}\s]/gu, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
+export const normalizeText = (text: string) => {
+  return text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 };
 
 // ─── CORE AI LOGIC ──────────────────────────────────────────────────────────
@@ -131,7 +131,7 @@ RESPONSE FORMAT (STRICT JSON):
 
   // Automatically include semantic match in the review for backward compatibility with worker
   const semanticScore = await calculateSemanticMatch(resumeText, jobDescription, providedApiKey);
-  
+
   return { ...analysis, semanticScore };
 };
 
@@ -239,14 +239,14 @@ export const calculateSemanticMatch = async (
 
     const [cvResult, jdResult] = await Promise.all([
       aiClient.models.embedContent({
-          model: MODELS.EMBEDDING,
-          contents: [{ parts: [{ text: normalizedCV }] }],
-          config: { taskType: 'SEMANTIC_SIMILARITY' as any }
+        model: MODELS.EMBEDDING,
+        contents: [{ parts: [{ text: normalizedCV }] }],
+        config: { taskType: 'SEMANTIC_SIMILARITY' as any }
       }),
       aiClient.models.embedContent({
-          model: MODELS.EMBEDDING,
-          contents: [{ parts: [{ text: normalizedJD }] }],
-          config: { taskType: 'SEMANTIC_SIMILARITY' as any }
+        model: MODELS.EMBEDDING,
+        contents: [{ parts: [{ text: normalizedJD }] }],
+        config: { taskType: 'SEMANTIC_SIMILARITY' as any }
       })
     ]);
 
@@ -270,11 +270,11 @@ export const calculateSemanticMatch = async (
  * Interactive Career Assistant chat.
  */
 export const chatWithAi = async (
-  message: string, 
-  history: any[], 
-  resumeText: string, 
-  jobDescription: string, 
-  lang: string = DEFAULTS.LANG, 
+  message: string,
+  history: any[],
+  resumeText: string,
+  jobDescription: string,
+  lang: string = DEFAULTS.LANG,
   providedApiKey?: string
 ) => {
   const languageName = lang === "en" ? "English" : "Tiếng Việt";

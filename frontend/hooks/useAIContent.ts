@@ -6,9 +6,10 @@ interface UseAIContentProps {
   jobDescription: string;
   lang: string;
   userApiKey: string;
+  visitorId: string;
 }
 
-export function useAIContent({ resumeText, jobDescription, lang, userApiKey }: UseAIContentProps) {
+export function useAIContent({ resumeText, jobDescription, lang, userApiKey, visitorId }: UseAIContentProps) {
   const [coverLetter, setCoverLetter] = useState("");
   const [isGeneratingCL, setIsGeneratingCL] = useState(false);
   const [clProgress, setClProgress] = useState(0);
@@ -39,7 +40,7 @@ export function useAIContent({ resumeText, jobDescription, lang, userApiKey }: U
       const resp = await fetch(`/api/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "cover-letter", resumeText, jobDescription, lang, userApiKey })
+        body: JSON.stringify({ type: "cover-letter", resumeText, jobDescription, lang, userApiKey, visitorId })
       });
       const data = await resp.json();
       if (data.jobId) {
@@ -66,7 +67,7 @@ export function useAIContent({ resumeText, jobDescription, lang, userApiKey }: U
       const resp = await fetch(`/api/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "interview", resumeText, jobDescription, lang, userApiKey })
+        body: JSON.stringify({ type: "interview", resumeText, jobDescription, lang, userApiKey, visitorId })
       });
       const data = await resp.json();
       if (data.jobId) {

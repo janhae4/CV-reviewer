@@ -1,6 +1,7 @@
 import { Worker, Job } from "bullmq";
 import IORedis from "ioredis";
 import { reviewResume, generateCoverLetter, generateInterviewPrep, magicFixBulletPoint } from "../lib/genai";
+import { logger } from "../lib/logger";
 import * as dotenv from "dotenv";
 import path from "path";
 
@@ -18,12 +19,12 @@ const worker = new Worker(
   "review-queue",
   async (job: Job) => {
     const { type, ...data } = job.data;
-    console.log(`[Worker] 📥 Received ${type} job: ${job.id}`);
+    logger.info(`[Worker] 📥 Received ${type} job: ${job.id}`);
 
     try {
       let result;
       if (type === "review") {
-        console.log(`[Worker] 🔍 Analyzing resume for job ${job.id}...`);
+        logger.info(`[Worker] 🔍 Analyzing resume for job ${job.id}...`);
         result = await reviewResume(data.text, data.jobDescription, data.lang, data.userApiKey);
         result = { ...result, extractedText: data.text };
       } else if (type === "cover-letter") {
@@ -38,13 +39,13 @@ const worker = new Worker(
       }
       
       const resultKey = `result:${job.id}`;
-      console.log(`[Worker] 💾 Saving result to Redis: ${resultKey}`);
+      logger.info(`[Worker] 💾 Saving result to Redis: ${resultKey}`);
       await connection.set(resultKey, JSON.stringify(result), "EX", 600);
       
-      console.log(`[Worker] ✅ Job ${job.id} finished successfully.`);
+      logger.info(`[Worker] ✅ Job ${job.id} finished successfully.`);
       return result;
     } catch (error: any) {
-      console.error(`[Worker] ❌ FATAL ERROR in job ${job.id}:`, error);
+      logger.error(`[Worker] ❌ FATAL ERROR in job ${job.id}: ${error.message}`, { stack: error.stack });
       throw error;
     }
   },

@@ -5,6 +5,8 @@ import PdfParse from "pdf-parse";
 import { reviewQueue, connection } from "./lib/queue";
 import * as dotenv from "dotenv";
 import path from "path";
+import { logger } from "./lib/logger";
+import { errorHandler, AppError } from "./lib/errorHandler";
 
 dotenv.config();
 
@@ -13,11 +15,47 @@ const port = process.env.PORT || 3001;
 
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 const upload = multer({ storage: multer.memoryStorage() });
 
+// Rate Limiter Middleware
+const rateLimiter = async (req: Request, res: Response, next: any) => {
+  const visitorId = req.body.visitorId || req.ip;
+  const userApiKey = req.body.userApiKey;
+
+  if (process.env.NODE_ENV === "test") {
+    // logger.info(`[RateLimit] Body: ${JSON.stringify(req.body)}`);
+  }
+
+  // Bypass if user provides their own API Key
+  if (userApiKey && userApiKey.trim().length > 20) {
+    return next();
+  }
+
+  const today = new Date().toISOString().split('T')[0];
+  const key = `ratelimit:${visitorId}:${today}`;
+
+  try {
+    const count = await connection.incr(key);
+    if (count === 1) {
+      await connection.expire(key, 86400); // 24 hours
+    }
+
+    if (count > 2) {
+      return res.status(429).json({ 
+        error: "Daily limit reached. Please enter your own Gemini API Key in 'Configure App' to continue." 
+      });
+    }
+    next();
+  } catch (err) {
+    console.error("Rate Limit Error:", err);
+    next();
+  }
+};
+
 // 1. Queue a review job
-app.post("/api/review", upload.single("file"), async (req: Request, res: Response) => {
+app.post("/api/review", upload.single("file"), rateLimiter, async (req: Request, res: Response, next: any) => {
   try {
     const file = req.file;
     const { jobDescription, lang, userApiKey } = req.body;
@@ -35,18 +73,18 @@ app.post("/api/review", upload.single("file"), async (req: Request, res: Respons
     });
     res.status(202).json({ jobId: job.id, extractedText: text });
   } catch (error) {
-    res.status(500).json({ error: "Internal server error" });
+    next(error);
   }
 });
 
 // 2. Queue Cover Letter / Interview / Magic Fix
-app.post("/api/generate", async (req: Request, res: Response) => {
+app.post("/api/generate", rateLimiter, async (req: Request, res: Response, next: any) => {
   try {
     const { type, ...data } = req.body; // type: 'cover-letter' | 'interview' | 'magic-fix'
     const job = await reviewQueue.add(type, { type, ...data });
     res.status(202).json({ jobId: job.id });
   } catch (error) {
-    res.status(500).json({ error: "Internal server error" });
+    next(error);
   }
 });
 
@@ -149,7 +187,12 @@ app.get("/api/review/events/:id", async (req: Request, res: Response) => {
   });
 });
 
+app.use(errorHandler);
 
-app.listen(port, () => {
-  console.log(`✅ Backend listening at http://localhost:${port}`);
-});
+export { app };
+
+if (process.env.NODE_ENV !== "test") {
+  app.listen(port, () => {
+    logger.info(`✅ Backend listening at http://localhost:${port}`);
+  });
+}

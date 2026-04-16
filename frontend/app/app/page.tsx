@@ -106,7 +106,7 @@ export default function AppPage() {
     coverLetter, setCoverLetter, isGeneratingCL, clProgress, generateCoverLetter,
     interviewPrep, setInterviewPrep, isGeneratingInterview, interviewProgress, generateInterviewPrep,
     resetAIContent
-  } = useAIContent({ resumeText, jobDescription, lang, userApiKey });
+  } = useAIContent({ resumeText, jobDescription, lang, userApiKey, visitorId });
 
   // Effects
   useEffect(() => {
