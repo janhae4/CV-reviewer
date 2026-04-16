@@ -79,7 +79,26 @@ export const translations = {
     close: "Close",
     typeCritical: "Critical",
     typeStrength: "Strength",
-    typeSuggestion: "Suggestion"
+    typeSuggestion: "Suggestion",
+    // New Dashboard Terms
+    activeVersion: "Active Version",
+    clickToChange: "Click to change",
+    targetJD: "Target JD",
+    startAnalysis: "START ANALYSIS",
+    executiveSummary: "Executive Summary",
+    semanticMatch: "Semantic Match",
+    aiAccurate: "AI Accurate",
+    aiAssessment: "AI Assessment",
+    competencyMatrix: "Competency Matrix",
+    atsCompatibility: "ATS Compatibility Engine",
+    matchRate: "Match Rate",
+    strongPoints: "Strong points",
+    improvements: "Improvements",
+    strategy: "Strategy",
+    configApp: "CONFIGURE APP",
+    support: "SUPPORT",
+    toastCLSuccess: "Cover Letter generated successfully!",
+    toastInterviewSuccess: "Interview Prep questions ready!"
   },
 
 
@@ -112,7 +131,7 @@ export const translations = {
     noKeywordsMatched: "Không tìm thấy từ khóa phù hợp.",
     noMissingKeywords: "Không có từ khóa quan trọng nào bị thiếu.",
     loadingAnnotator: "Đang tải trình chú thích...",
-    keywordGapAnalysis: "Phân tích khoảng cách từ khóa",
+    keywordGapAnalysis: "Phân tích từ khóa (ATS)",
     optimizationTips: "Gợi ý tối ưu hóa",
     matchedPercentage: "Tỷ lệ khớp",
     faqs: [
@@ -131,7 +150,7 @@ export const translations = {
     zoom: "phóng",
     reset: "Đặt lại",
     loading: "Đang tải...",
-    reScan: "PHÂN TÍCH LẠI",
+    reScan: "QUÉT LẠI",
     uploadNew: "TẢI PHIÊN BẢN MỚI",
     limitReached: "Đã đạt giới hạn hàng ngày",
     limitSubtitle: "Bạn đã sử dụng hết 2 lượt phân tích miễn phí hôm nay. Để tiếp tục, hãy nhập API Key Gemini của riêng bạn hoặc nâng cấp lên PRO.",
@@ -146,7 +165,7 @@ export const translations = {
     showApiLabel: "Nâng cao: Dùng API Key riêng",
     hideApiLabel: "Ẩn cài đặt API",
     toastCopied: "Đã sao chép vào bộ nhớ tạm!",
-    prepareInterview: "Chuẩn bị phỏng vấn",
+    prepareInterview: "Luyện phỏng vấn",
     interviewTitle: "Luyện phỏng vấn AI",
     rationale: "Lý do hỏi",
     answer: "Gợi ý trả lời",
@@ -163,7 +182,26 @@ export const translations = {
     close: "Đóng",
     typeCritical: "Nghiêm trọng",
     typeStrength: "Điểm mạnh",
-    typeSuggestion: "Đề xuất"
+    typeSuggestion: "Đề xuất",
+    // New Dashboard Terms
+    activeVersion: "Phiên bản hiện tại",
+    clickToChange: "Nhấp để thay đổi",
+    targetJD: "JD Mục tiêu",
+    startAnalysis: "BẮT ĐẦU PHÂN TÍCH",
+    executiveSummary: "Tóm tắt báo cáo",
+    semanticMatch: "Độ tương đồng ngữ nghĩa",
+    aiAccurate: "AI Phân tích",
+    aiAssessment: "Đánh giá từ AI",
+    competencyMatrix: "Ma trận năng lực",
+    atsCompatibility: "Tương thích hệ thống ATS",
+    matchRate: "Tỷ lệ khớp lệnh",
+    strongPoints: "Các điểm mạnh",
+    improvements: "Cần cải thiện",
+    strategy: "Chiến lược",
+    configApp: "CÀI ĐẶT",
+    support: "HỖ TRỢ",
+    toastCLSuccess: "Cover Letter đã được tạo thành công!",
+    toastInterviewSuccess: "Bộ câu hỏi phỏng vấn đã sẵn sàng!"
   }
 
 
