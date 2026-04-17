@@ -16,6 +16,11 @@ export const reviewQueue = new Queue("review-queue", {
       type: "exponential",
       delay: 1000,
     },
-    removeOnComplete: true,
+    removeOnComplete: {
+      count: 100, // Keep last 100 completed jobs for monitoring
+    },
+    removeOnFail: {
+      count: 500, // Keep last 500 failed jobs for debugging
+    },
   },
 });

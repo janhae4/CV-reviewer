@@ -7,9 +7,10 @@ interface UseCVAnalysisProps {
   visitorId: string;
   userApiKey: string;
   onSuccess?: (result: AnalysisResult, file: File | null) => void;
+  aiSettings?: { maxInput: number; maxOutput: number };
 }
 
-export function useCVAnalysis({ lang, visitorId, userApiKey, onSuccess }: UseCVAnalysisProps) {
+export function useCVAnalysis({ lang, visitorId, userApiKey, onSuccess, aiSettings }: UseCVAnalysisProps) {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState("");
@@ -51,6 +52,10 @@ export function useCVAnalysis({ lang, visitorId, userApiKey, onSuccess }: UseCVA
       formData.append("visitorId", visitorId);
       if (userApiKey) formData.append("userApiKey", userApiKey);
       if (force) formData.append("force", "true");
+      if (aiSettings) {
+        formData.append("maxInputChars", aiSettings.maxInput.toString());
+        formData.append("maxOutputTokens", aiSettings.maxOutput.toString());
+      }
 
       const progressInterval = setInterval(() => {
         setProgress(prev => prev >= 98 ? prev : prev + (prev < 60 ? Math.random() * 8 : Math.random() * 1.5));
@@ -63,6 +68,9 @@ export function useCVAnalysis({ lang, visitorId, userApiKey, onSuccess }: UseCVA
       const finalResult = await connectSSE(data.jobId);
       clearInterval(progressInterval);
       setProgress(100);
+
+      // Wait for progress bar animation (300ms) + small buffer
+      await new Promise(resolve => setTimeout(resolve, 800));
 
       if (finalResult.extractedText) setResumeText(finalResult.extractedText);
       
@@ -87,7 +95,9 @@ export function useCVAnalysis({ lang, visitorId, userApiKey, onSuccess }: UseCVA
       
       return finalResult;
     } catch (err: any) {
-      setError(err instanceof Error ? err.message : "Analysis failed");
+      const msg = err instanceof Error ? err.message : "Analysis failed";
+      setError(msg);
+      throw err; // Re-throw so parent can handle specific errors
     } finally {
       setLoading(false);
     }

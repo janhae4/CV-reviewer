@@ -1,6 +1,6 @@
 "use client";
 import { motion, AnimatePresence } from "motion/react";
-import { FiClock, FiX, FiExternalLink, FiTrash2 } from "react-icons/fi";
+import { FiClock, FiX, FiExternalLink, FiTrash2, FiSettings } from "react-icons/fi";
 import { HistoryEntry } from "../../types/resume";
 
 interface ReportHistoryProps {
@@ -10,9 +10,10 @@ interface ReportHistoryProps {
   onRestore: (entry: HistoryEntry) => void;
   onDelete: (id: string) => void;
   onClearAll: () => void;
+  onOpenSettings?: () => void;
 }
 
-export default function ReportHistory({ show, onClose, history, onRestore, onDelete, onClearAll }: ReportHistoryProps) {
+export default function ReportHistory({ show, onClose, history, onRestore, onDelete, onClearAll, onOpenSettings }: ReportHistoryProps) {
   return (
     <AnimatePresence>
       {show && (
@@ -20,7 +21,7 @@ export default function ReportHistory({ show, onClose, history, onRestore, onDel
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-md flex items-center justify-center p-6"
+          className="fixed inset-0 z-[200] bg-black/95 backdrop-blur-md flex items-center justify-center p-6"
         >
           <motion.div
             initial={{ scale: 0.95, opacity: 0 }}
@@ -39,6 +40,13 @@ export default function ReportHistory({ show, onClose, history, onRestore, onDel
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => { onOpenSettings?.(); }} 
+                  className="w-10 h-10 border border-border text-neutral hover:border-accent hover:text-accent transition-all flex items-center justify-center"
+                  title="Storage Settings"
+                >
+                  <FiSettings className="text-sm" />
+                </button>
                 {history.length > 0 && (
                   <button 
                     onClick={() => { if(confirm("Clear all history?")) onClearAll(); }} 
@@ -47,15 +55,15 @@ export default function ReportHistory({ show, onClose, history, onRestore, onDel
                     Delete All
                   </button>
                 )}
-                <button onClick={onClose} className="w-10 h-10 border border-border text-neutral hover:border-accent hover:text-accent transition-all flex items-center justify-center">
+                <button onClick={onClose} className="w-10 h-10 border border-border text-neutral hover:border-negative hover:text-negative transition-all flex items-center justify-center">
                   <FiX />
                 </button>
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-2">
+            <div className="flex-1 overflow-y-auto p-3 custom-scrollbar">
               {history.length === 0 ? (
-                <div className="py-20 flex flex-col items-center justify-center opacity-30 text-center">
+                <div className="py-24 flex flex-col items-center justify-center opacity-30 text-center">
                   <FiClock className="w-12 h-12 mb-4" />
                   <p className="text-[10px] uppercase font-black tracking-widest">No history found</p>
                 </div>
@@ -97,6 +105,18 @@ export default function ReportHistory({ show, onClose, history, onRestore, onDel
                   ))}
                 </div>
               )}
+            </div>
+            
+            <div className="p-4 border-t border-border bg-surface flex justify-between items-center">
+               <p className="text-[9px] font-black uppercase tracking-widest text-neutral/40">
+                 Auto-cleanup every 7 days
+               </p>
+               <button 
+                onClick={() => { onOpenSettings?.(); }} 
+                className="text-[9px] font-black uppercase tracking-widest text-accent hover:underline underline-offset-4"
+               >
+                 Adjust Storage Limit →
+               </button>
             </div>
           </motion.div>
         </motion.div>

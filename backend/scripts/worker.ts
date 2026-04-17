@@ -1,6 +1,6 @@
 import { Worker, Job } from "bullmq";
 import IORedis from "ioredis";
-import { reviewResume, generateCoverLetter, generateInterviewPrep, magicFixBulletPoint } from "../lib/genai";
+import { reviewResume, generateCoverLetter, generateInterviewPrep, magicFixBulletPoint, chatWithAi } from "../lib/genai";
 import { logger } from "../lib/logger";
 import * as dotenv from "dotenv";
 import path from "path";
@@ -23,19 +23,23 @@ const worker = new Worker(
 
     try {
       let result;
+      const opt = data.maxOutputTokens;
       if (type === "review") {
         logger.info(`[Worker] 🔍 Analyzing resume for job ${job.id}...`);
-        result = await reviewResume(data.text, data.jobDescription, data.lang, data.userApiKey);
+        result = await reviewResume(data.text, data.jobDescription, data.lang, data.userApiKey, opt);
         result = { ...result, extractedText: data.text };
       } else if (type === "cover-letter") {
         console.log(`[Worker] 📝 Generating cover letter for job ${job.id}...`);
-        result = await generateCoverLetter(data.resumeText, data.jobDescription, data.lang, data.userApiKey);
+        result = await generateCoverLetter(data.resumeText, data.jobDescription, data.lang, data.userApiKey, opt);
       } else if (type === "interview") {
         console.log(`[Worker] 🎙️ Generating interview prep for job ${job.id}...`);
-        result = await generateInterviewPrep(data.resumeText, data.jobDescription, data.lang, data.userApiKey);
+        result = await generateInterviewPrep(data.resumeText, data.jobDescription, data.lang, data.userApiKey, opt);
       } else if (type === "magic-fix") {
         console.log(`[Worker] ✨ Applying magic fix for job ${job.id}...`);
-        result = await magicFixBulletPoint(data.quote, data.resumeText, data.jobDescription, data.lang, data.userApiKey);
+        result = await magicFixBulletPoint(data.quote, data.resumeText, data.jobDescription, data.lang, data.userApiKey, opt);
+      } else if (type === "chat") {
+        console.log(`[Worker] 💬 Responding to chat for job ${job.id}...`);
+        result = await chatWithAi(data.message, data.history, data.resumeText, data.jobDescription, data.lang, data.userApiKey, opt);
       }
       
       const resultKey = `result:${job.id}`;
@@ -51,7 +55,9 @@ const worker = new Worker(
   },
   { 
     connection,
-    concurrency: 5 
+    concurrency: 5,
+    removeOnComplete: { count: 100 },
+    removeOnFail: { count: 500 }
   }
 );
 

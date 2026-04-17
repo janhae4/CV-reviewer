@@ -3,7 +3,8 @@ import { useState, lazy, Suspense, useRef, useEffect, useReducer } from "react";
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import * as XLSX from 'xlsx';
 import { motion, AnimatePresence } from "motion/react";
-import { FiRefreshCw, FiFilePlus, FiEdit3, FiFileText, FiDownload, FiMoreHorizontal, FiSettings, FiCoffee, FiMic } from "react-icons/fi";
+import Link from 'next/link';
+import { FiRefreshCw, FiFilePlus, FiEdit3, FiFileText, FiDownload, FiMoreHorizontal, FiSettings, FiCoffee, FiMic, FiActivity } from "react-icons/fi";
 
 // Components
 import TopNav from "@/components/TopNav";
@@ -14,6 +15,7 @@ import CareerAssistant from "@/components/CareerAssistant";
 import AnalysisReport from "@/components/report/AnalysisReport";
 import ReportHistory from "@/components/report/ReportHistory";
 import ActionButtons from "@/components/report/ActionButtons";
+import LimitModal from "@/components/LimitModal";
 
 // Hooks
 import { useCVAnalysis } from "@/hooks/useCVAnalysis";
@@ -21,7 +23,7 @@ import { useAIContent } from "@/hooks/useAIContent";
 
 // Types/Lib
 import { translations, Language } from "@/lib/translations";
-import { AnalysisResult, HistoryEntry } from "@/types/resume";
+import { AnalysisResult, HistoryEntry, Message } from "@/types/resume";
 import { saveFileToDB, getFileFromDB, deleteFileFromDB, clearAllFromDB } from "@/lib/db";
 
 
@@ -38,11 +40,14 @@ type UIState = {
   showApiConfig: boolean;
   showMoreMenu: boolean;
   isWorkspace: boolean;
+  configMode: 'all' | 'chat' | 'history';
+  isLimitReached: boolean;
+  limitType: 'usage' | 'storage';
 };
 
 type UIAction =
   | { type: 'TOGGLE_MODAL'; modal: keyof UIState }
-  | { type: 'SET_MODAL'; modal: keyof UIState; value: boolean }
+  | { type: 'SET_MODAL'; modal: keyof UIState; value: any } // Use any to support both boolean and strings
   | { type: 'CLOSE_ALL' };
 
 function uiReducer(state: UIState, action: UIAction): UIState {
@@ -52,7 +57,12 @@ function uiReducer(state: UIState, action: UIAction): UIState {
     case 'SET_MODAL':
       return { ...state, [action.modal]: action.value };
     case 'CLOSE_ALL':
-      return { ...state, showLimitModal: false, showQr: false, showHistoryModal: false, showCLModal: false, showInterviewModal: false, showMoreMenu: false };
+      return {
+        ...state,
+        showLimitModal: false, showQr: false, showHistoryModal: false,
+        showCLModal: false, showInterviewModal: false, showMoreMenu: false,
+        isLimitReached: false
+      };
     default:
       return state;
   }
@@ -71,16 +81,22 @@ export default function AppPage() {
   const [userApiKey, setUserApiKey] = useState("");
   const [visitorId, setVisitorId] = useState("");
   const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [aiSettings, setAiSettings] = useState({ maxInput: 1000, maxOutput: 1000, maxHistory: 10 });
   const [toast, setToast] = useState("");
   const [isExporting, setIsExporting] = useState(false);
   const [currentId, setCurrentId] = useState<string | null>(null);
+  const [chatMessages, setChatMessages] = useState<Message[]>([]);
 
   // UI State
   const [ui, dispatch] = useReducer(uiReducer, {
     showLimitModal: false, showQr: false, showHistoryModal: false,
     showCLModal: false, showInterviewModal: false, showApiConfig: false,
-    showMoreMenu: false, isWorkspace: false
+    showMoreMenu: false, isWorkspace: false,
+    configMode: 'all', isLimitReached: false,
+    limitType: 'usage'
   });
+  const [mobileView, setMobileView] = useState<'report' | 'pdf'>('report');
+  const [hasRestored, setHasRestored] = useState(false);
 
   const t = translations[lang];
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -90,9 +106,10 @@ export default function AppPage() {
     loading, progress, error, result, annotations, resumeText,
     analyze, resetAnalysis, restoreAnalysis, setResumeText
   } = useCVAnalysis({
-    lang, visitorId, userApiKey,
+    lang, visitorId, userApiKey, aiSettings,
     onSuccess: (res: AnalysisResult, f: File | null) => {
-      if (!userApiKey) {
+      const devBypass = localStorage.getItem('dev_bypass') === 'true';
+      if (!userApiKey && !devBypass) {
         const nextCount = usageCount + 1;
         setUsageCount(nextCount);
         localStorage.setItem("resume_usage_count", nextCount.toString());
@@ -106,26 +123,116 @@ export default function AppPage() {
     coverLetter, setCoverLetter, isGeneratingCL, clProgress, generateCoverLetter,
     interviewPrep, setInterviewPrep, isGeneratingInterview, interviewProgress, generateInterviewPrep,
     resetAIContent
-  } = useAIContent({ resumeText, jobDescription, lang, userApiKey, visitorId });
+  } = useAIContent({ resumeText, jobDescription, lang, userApiKey, visitorId, aiSettings });
 
-  // Effects
   useEffect(() => {
     setUsageCount(Number(localStorage.getItem("resume_usage_count") || 0));
-    setUserApiKey(localStorage.getItem("resume_user_api_key") || "");
-    try { setHistory(JSON.parse(localStorage.getItem("resume_history") || "[]")); } catch (e) { }
+
+    const savedKey = localStorage.getItem("resume_ai_key");
+    if (savedKey) setUserApiKey(savedKey);
+
+    const savedSettings = localStorage.getItem("resume_ai_settings");
+    if (savedSettings) setAiSettings(JSON.parse(savedSettings));
+
+    const savedHistory = localStorage.getItem("resume_history");
+    if (savedHistory) {
+      try {
+        const parsed = JSON.parse(savedHistory);
+        setHistory(parsed);
+
+        // Restore last session if it was workspace
+        const wasWorkspace = localStorage.getItem("resume_is_workspace") === "true";
+        if (wasWorkspace && parsed.length > 0 && !hasRestored) {
+          const last = parsed[0];
+          restoreAnalysis(last);
+          setCurrentId(last.id);
+          setJobDescription(last.jobDescription);
+          setLang(last.lang as any);
+          setChatMessages(last.messages || []);
+
+          // RECOVER FILE FROM INDEXEDDB
+          getFileFromDB(last.id).then(f => {
+            if (f) {
+              setFile(f);
+              setFileUrl(URL.createObjectURL(f));
+            }
+          });
+
+          dispatch({ type: 'SET_MODAL', modal: 'isWorkspace', value: true });
+          setHasRestored(true);
+        }
+      } catch (e) { }
+    }
 
     FingerprintJS.load().then(fp => fp.get()).then(res => setVisitorId(res.visitorId));
+
+    // AUTO-CLEANUP (Older than 7 days)
+    const runCleanup = async (currentHistory: HistoryEntry[]) => {
+      const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+      const now = Date.now();
+      const expiredIds: string[] = [];
+
+      const filteredHistory = currentHistory.filter(entry => {
+        const age = now - new Date(entry.timestamp).getTime();
+        if (age > SEVEN_DAYS_MS) {
+          expiredIds.push(entry.id);
+          return false;
+        }
+        return true;
+      });
+
+      if (expiredIds.length > 0) {
+        console.log(`[Cleanup] Removing ${expiredIds.length} expired entries`);
+        for (const id of expiredIds) {
+          await deleteFileFromDB(id);
+        }
+        setHistory(filteredHistory);
+        localStorage.setItem("resume_history", JSON.stringify(filteredHistory));
+      }
+    };
+
+    if (savedHistory) {
+      try {
+        const parsed = JSON.parse(savedHistory);
+        runCleanup(parsed);
+      } catch (e) { }
+    }
   }, []);
 
+  // Save workspace state
+  useEffect(() => {
+    localStorage.setItem("resume_is_workspace", ui.isWorkspace.toString());
+  }, [ui.isWorkspace]);
+
+  // Sync messages to history
+  useEffect(() => {
+    if (currentId && chatMessages.length > 0) {
+      updateHistoryContent(currentId, { messages: chatMessages });
+    }
+  }, [chatMessages, currentId]);
+
+  // Show error toasts
+  useEffect(() => {
+    if (error) {
+      showToast(error);
+    }
+  }, [error, lang]);
+
   // Handlers
+  const handleSaveKey = (key: string, settings?: any) => {
+    setUserApiKey(key);
+    localStorage.setItem("resume_ai_key", key);
+    localStorage.setItem("resume_user_api_key", key); // Sync for backward compatibility
+    if (settings) {
+      setAiSettings(prev => ({ ...prev, ...settings }));
+      localStorage.setItem("resume_ai_settings", JSON.stringify({ ...aiSettings, ...settings }));
+    }
+    dispatch({ type: 'SET_MODAL', modal: 'showApiConfig', value: false });
+    showToast(lang === "vi" ? "Đã cập nhật cài đặt AI" : "AI Settings Updated");
+  };
+
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
-  const handleSaveApiKey = (key: string) => {
-    setUserApiKey(key);
-    localStorage.setItem("resume_user_api_key", key);
-    dispatch({ type: 'SET_MODAL', modal: 'showLimitModal', value: false });
-    showToast(lang === "vi" ? "Đã lưu API Key" : "API Key Saved");
-  };
 
   const saveToHistory = async (res: any, f: File | null) => {
     const id = Date.now().toString();
@@ -164,7 +271,7 @@ export default function AppPage() {
     setJobDescription(entry.jobDescription);
     setLang(entry.lang as Language);
     if (fileUrl) URL.revokeObjectURL(fileUrl);
-    
+
     // Attempt to restore PDF file from IndexedDB
     const storedFile = await getFileFromDB(entry.id);
     if (storedFile) {
@@ -177,12 +284,13 @@ export default function AppPage() {
 
     setCoverLetter(entry.coverLetter || "");
     setInterviewPrep(entry.interviewPrep || []);
+    setChatMessages(entry.messages || []);
     setCurrentId(entry.id);
 
     dispatch({ type: 'SET_MODAL', modal: 'isWorkspace', value: true });
     dispatch({ type: 'SET_MODAL', modal: 'showHistoryModal', value: false });
     showToast(
-      storedFile 
+      storedFile
         ? (lang === "vi" ? "Đã khôi phục lịch sử & PDF" : "History & PDF Restored")
         : (lang === "vi" ? "Đã khôi phục lịch sử (Không tìm thấy PDF)" : "History Restored (PDF not found)")
     );
@@ -193,13 +301,85 @@ export default function AppPage() {
     if (fileUrl) URL.revokeObjectURL(fileUrl);
     setFile(f);
     setFileUrl(f.type === "application/pdf" ? URL.createObjectURL(f) : null);
-    if (ui.isWorkspace) { resetAnalysis(); resetAIContent(); setCurrentId(null); }
+    if (ui.isWorkspace) {
+      resetAnalysis();
+      resetAIContent();
+      setChatMessages([]);
+      setCurrentId(null);
+    }
   };
 
-  const onHandleSubmit = (opts = {}) => {
-    if (usageCount >= 2 && !userApiKey) { dispatch({ type: 'SET_MODAL', modal: 'showLimitModal', value: true }); return; }
-    analyze(file, jobDescription, opts);
+  const onHandleSubmit = async (arg: any = {}) => {
+    const isEvent = arg && (arg.nativeEvent || arg.target);
+    const opts = isEvent ? {} : arg;
+    const isForce = opts.force === true;
+    const devBypass = localStorage.getItem('dev_bypass') === 'true';
+
+    // Check history storage limit (skip when dev bypass is on)
+    if (!devBypass && history.length >= aiSettings.maxHistory && !isForce && !currentId) {
+      dispatch({ type: 'SET_MODAL', modal: 'limitType', value: 'storage' });
+      dispatch({ type: 'SET_MODAL', modal: 'showLimitModal', value: true });
+      return;
+    }
+    // Check free usage quota (skip when dev bypass is on or user has API key)
+    if (!devBypass && usageCount >= 2 && !userApiKey) {
+      dispatch({ type: 'SET_MODAL', modal: 'limitType', value: 'usage' });
+      dispatch({ type: 'SET_MODAL', modal: 'showLimitModal', value: true });
+      return;
+    }
+    try {
+      const res = await analyze(file, jobDescription, opts);
+      if (res && res.error && res.error.includes("Daily limit")) {
+        dispatch({ type: 'SET_MODAL', modal: 'isLimitReached', value: true });
+        dispatch({ type: 'SET_MODAL', modal: 'configMode', value: 'chat' });
+        dispatch({ type: 'SET_MODAL', modal: 'showApiConfig', value: true });
+      } else if (res) {
+        setUsageCount(prev => prev + 1);
+      }
+    } catch (e: any) {
+      if (e.message.includes("Daily limit")) {
+        dispatch({ type: 'SET_MODAL', modal: 'showLimitModal', value: true });
+      }
+    }
     dispatch({ type: 'SET_MODAL', modal: 'showMoreMenu', value: false });
+  };
+
+  const onHandleGenerateCL = async () => {
+    const devBypass = localStorage.getItem('dev_bypass') === 'true';
+    if (!userApiKey && usageCount >= 2 && !devBypass) {
+      dispatch({ type: 'SET_MODAL', modal: 'limitType', value: 'usage' });
+      dispatch({ type: 'SET_MODAL', modal: 'showLimitModal', value: true });
+      return;
+    }
+    try {
+      const res = await generateCoverLetter();
+      if (res && currentId) {
+        updateHistoryContent(currentId, { coverLetter: res });
+      }
+    } catch (e: any) {
+      if (e.message.includes("Daily limit")) {
+        dispatch({ type: 'SET_MODAL', modal: 'showLimitModal', value: true });
+      }
+    }
+  };
+
+  const onHandleGenerateInterview = async () => {
+    const devBypass = localStorage.getItem('dev_bypass') === 'true';
+    if (!userApiKey && usageCount >= 2 && !devBypass) {
+      dispatch({ type: 'SET_MODAL', modal: 'limitType', value: 'usage' });
+      dispatch({ type: 'SET_MODAL', modal: 'showLimitModal', value: true });
+      return;
+    }
+    try {
+      const res = await generateInterviewPrep();
+      if (res && currentId) {
+        updateHistoryContent(currentId, { interviewPrep: res });
+      }
+    } catch (e: any) {
+      if (e.message.includes("Daily limit")) {
+        dispatch({ type: 'SET_MODAL', modal: 'showLimitModal', value: true });
+      }
+    }
   };
 
   const handleExportPDF = async () => {
@@ -242,14 +422,15 @@ export default function AppPage() {
 
       <TopNav
         lang={lang} setLang={setLang} isWorkspace={ui.isWorkspace}
-        onReset={() => { 
-          resetAnalysis(); 
-          resetAIContent(); 
-          setFile(null); 
+        onReset={() => {
+          resetAnalysis();
+          resetAIContent();
+          setChatMessages([]);
+          setFile(null);
           if (fileUrl) URL.revokeObjectURL(fileUrl);
-          setFileUrl(null); 
+          setFileUrl(null);
           setCurrentId(null);
-          dispatch({ type: 'SET_MODAL', modal: 'isWorkspace', value: false }); 
+          dispatch({ type: 'SET_MODAL', modal: 'isWorkspace', value: false });
         }}
         onShowHistory={() => dispatch({ type: 'SET_MODAL', modal: 'showHistoryModal', value: true })}
         historyCount={history.length} loading={loading} progress={progress}
@@ -258,7 +439,7 @@ export default function AppPage() {
 
       <main className="flex-1 overflow-hidden">
         {!ui.isWorkspace ? (
-          <div className="h-[calc(100vh-56px)] flex items-center justify-center px-6 py-4">
+          <div className="h-auto md:h-[calc(100vh-56px)] flex items-center justify-center px-4 py-10 md:px-6">
             <ScanForm
               lang={lang} t={t} usageCount={usageCount} userApiKey={userApiKey}
               file={file} dragActive={dragActive} jobDescription={jobDescription}
@@ -271,13 +452,14 @@ export default function AppPage() {
               onJobDescriptionChange={setJobDescription}
               onToggleApiConfig={() => dispatch({ type: 'TOGGLE_MODAL', modal: 'showApiConfig' })}
               onApiKeyChange={(key) => { setUserApiKey(key); localStorage.setItem("resume_user_api_key", key); }}
-              onClearApiKey={() => handleSaveApiKey("")}
+              onClearApiKey={() => handleSaveKey("")}
               onSubmit={onHandleSubmit}
             />
           </div>
         ) : (
-          <div className="flex h-[calc(100vh-56px)] overflow-hidden">
-            <div className="w-[60%] flex-shrink-0 border-r border-border overflow-y-auto flex flex-col bg-background custom-scrollbar">
+          <div className="flex flex-col md:flex-row h-auto md:h-[calc(100vh-56px)] relative">
+            {/* Report Side */}
+            <div className={`w-full md:w-[60%] flex-shrink-0 border-r border-border overflow-y-auto flex flex-col bg-background custom-scrollbar ${mobileView === 'pdf' ? 'hidden md:flex' : 'flex'}`}>
               {!hasResults ? (
                 <div className="flex-1 p-8 flex flex-col gap-10">
                   <div className="flex flex-col gap-3">
@@ -297,35 +479,38 @@ export default function AppPage() {
                   <button onClick={onHandleSubmit} disabled={loading} className="h-20 border border-accent bg-accent text-background text-xs font-black tracking-[0.5em] uppercase hover:opacity-90 flex items-center justify-center gap-3 transition-all active:scale-[0.98]">
                     {loading ? <FiRefreshCw className="animate-spin text-lg" /> : t.startAnalysis}
                   </button>
+                  {error && <p className="text-negative text-[10px] text-center tracking-widest font-black uppercase bg-negative/10 py-3 border border-negative/20">{error}</p>}
                 </div>
               ) : (
                 <>
                   <AnalysisReport result={result} t={t} lang={lang} />
                   <ActionButtons
-                    onGenerateCL={async () => { 
+                    onGenerateCL={async () => {
                       dispatch({ type: 'SET_MODAL', modal: 'showCLModal', value: true });
                       if (!coverLetter && !isGeneratingCL) {
-                        const cl = await generateCoverLetter();
-                        if (cl && currentId) updateHistoryContent(currentId, { coverLetter: cl });
+                        await onHandleGenerateCL();
                         showToast(t.toastCLSuccess);
                       }
-                    }} 
+                    }}
                     isGeneratingCL={isGeneratingCL} clProgress={clProgress} hasCL={!!coverLetter}
-                    onGenerateInterview={async () => { 
+                    onGenerateInterview={async () => {
                       dispatch({ type: 'SET_MODAL', modal: 'showInterviewModal', value: true });
                       if (interviewPrep.length === 0 && !isGeneratingInterview) {
-                        const prep = await generateInterviewPrep();
-                        if (prep && currentId) updateHistoryContent(currentId, { interviewPrep: prep });
+                        await onHandleGenerateInterview();
                         showToast(t.toastInterviewSuccess);
                       }
-                    }} 
+                    }}
                     isGeneratingInterview={isGeneratingInterview} interviewProgress={interviewProgress} hasInterview={interviewPrep.length > 0}
                     t={t} lang={lang}
                   />
                   <div className="px-6 py-4 border-t border-border bg-surface flex items-center justify-center gap-8">
-                    <button onClick={() => dispatch({ type: 'SET_MODAL', modal: 'showLimitModal', value: true })} className="text-[9px] uppercase font-black tracking-[0.3em] overflow-hidden whitespace-nowrap text-accent/60 hover:text-accent transition-colors flex items-center gap-2">
+                    <button onClick={() => dispatch({ type: 'SET_MODAL', modal: 'showApiConfig', value: true })} className="text-[9px] uppercase font-black tracking-[0.3em] overflow-hidden whitespace-nowrap text-accent/60 hover:text-accent transition-colors flex items-center gap-2">
                       <FiSettings /> {(usageCount >= 2 && !userApiKey) ? t.configAppLimit : t.configAppNormal}
                     </button>
+                    <div className="w-1 h-1 rounded-full bg-border" />
+                    <Link href="/app/monitor" className="text-[9px] uppercase font-black tracking-[0.3em] text-accent/60 hover:text-accent transition-colors flex items-center gap-2">
+                      <FiActivity /> {t.monitorTitle}
+                    </Link>
                     <div className="w-1 h-1 rounded-full bg-border" />
                     <button onClick={() => dispatch({ type: 'SET_MODAL', modal: 'showQr', value: true })} className="text-[9px] uppercase font-black tracking-[0.3em] text-neutral/40 hover:text-neutral transition-colors flex items-center gap-2">
                       <FiCoffee /> {t.support}
@@ -335,7 +520,8 @@ export default function AppPage() {
               )}
             </div>
 
-            <div className="flex-1 overflow-hidden flex flex-col bg-black/50">
+            {/* Document Preview */}
+            <div className={`flex-1 overflow-hidden flex flex-col bg-black/50 ${mobileView === 'report' ? 'hidden md:flex' : 'flex'}`}>
               <div className="flex-shrink-0 border-b border-border bg-surface px-6 py-2.5 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
@@ -376,24 +562,61 @@ export default function AppPage() {
                 )}
               </div>
             </div>
+
+            {/* Mobile Toggle Button */}
+            <button
+              onClick={() => setMobileView(mobileView === 'report' ? 'pdf' : 'report')}
+              className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-accent text-background px-6 py-3 font-black text-[10px] uppercase tracking-[0.3em] shadow-[10px_10px_0_rgba(0,0,0,1)] border-2 border-background active:translate-y-1 active:shadow-none transition-all flex items-center gap-3"
+            >
+              <FiFileText />
+              {mobileView === 'report' ? (lang === 'vi' ? 'XEM PDF' : 'VIEW PDF') : (lang === 'vi' ? 'XEM BÁO CÁO' : 'VIEW REPORT')}
+            </button>
           </div>
         )}
       </main>
 
       {/* Modals */}
-      <ApiConfigModal show={ui.showLimitModal} onClose={() => dispatch({ type: 'SET_MODAL', modal: 'showLimitModal', value: false })} userApiKey={userApiKey} setUserApiKey={setUserApiKey} onSave={handleSaveApiKey} t={t} />
+      <ApiConfigModal
+        show={ui.showApiConfig}
+        mode={ui.configMode}
+        isLimitReached={ui.isLimitReached}
+        onClose={() => {
+          dispatch({ type: 'SET_MODAL', modal: 'showApiConfig', value: false });
+          dispatch({ type: 'SET_MODAL', modal: 'isLimitReached', value: false });
+          dispatch({ type: 'SET_MODAL', modal: 'configMode', value: 'all' });
+        }}
+        userApiKey={userApiKey}
+        setUserApiKey={setUserApiKey}
+        onSave={handleSaveKey}
+        t={t}
+      />
+      <LimitModal
+        show={ui.showLimitModal}
+        type={ui.limitType}
+        onClose={() => dispatch({ type: 'SET_MODAL', modal: 'showLimitModal', value: false })}
+        onOpenSettings={() => {
+          dispatch({ type: 'SET_MODAL', modal: 'configMode', value: ui.limitType === 'storage' ? 'history' : 'chat' });
+          dispatch({ type: 'SET_MODAL', modal: 'showApiConfig', value: true });
+        }}
+        onOpenHistory={() => dispatch({ type: 'SET_MODAL', modal: 'showHistoryModal', value: true })}
+        t={t}
+      />
       <SupportQrModal show={ui.showQr} onClose={() => dispatch({ type: 'SET_MODAL', modal: 'showQr', value: false })} />
-      <ReportHistory 
-        show={ui.showHistoryModal} 
-        onClose={() => dispatch({ type: 'SET_MODAL', modal: 'showHistoryModal', value: false })} 
-        history={history} 
-        onRestore={handleRestoreHistory} 
-        onDelete={async (id) => { 
-          const n = history.filter(h => h.id !== id); 
-          setHistory(n); 
-          localStorage.setItem("resume_history", JSON.stringify(n)); 
+      <ReportHistory
+        show={ui.showHistoryModal}
+        onClose={() => dispatch({ type: 'SET_MODAL', modal: 'showHistoryModal', value: false })}
+        onOpenSettings={() => {
+          dispatch({ type: 'SET_MODAL', modal: 'configMode', value: 'history' });
+          dispatch({ type: 'SET_MODAL', modal: 'showApiConfig', value: true });
+        }}
+        history={history}
+        onRestore={handleRestoreHistory}
+        onDelete={async (id) => {
+          const n = history.filter(h => h.id !== id);
+          setHistory(n);
+          localStorage.setItem("resume_history", JSON.stringify(n));
           await deleteFileFromDB(id);
-        }} 
+        }}
         onClearAll={async () => {
           setHistory([]);
           localStorage.removeItem("resume_history");
@@ -402,7 +625,23 @@ export default function AppPage() {
         }}
       />
 
-      {ui.isWorkspace && <CareerAssistant resumeText={resumeText} jobDescription={jobDescription} lang={lang} userApiKey={userApiKey} t={t} />}
+      {ui.isWorkspace && (
+        <CareerAssistant
+          resumeText={resumeText}
+          jobDescription={jobDescription}
+          lang={lang}
+          userApiKey={userApiKey}
+          visitorId={visitorId}
+          aiSettings={aiSettings}
+          messages={chatMessages}
+          setMessages={setChatMessages}
+          onOpenSettings={() => {
+            dispatch({ type: 'SET_MODAL', modal: 'configMode', value: 'chat' });
+            dispatch({ type: 'SET_MODAL', modal: 'showApiConfig', value: true });
+          }}
+          t={t}
+        />
+      )}
 
       {/* CL Modal */}
       <AnimatePresence>
@@ -412,20 +651,16 @@ export default function AppPage() {
               <div className="p-6 border-b border-border bg-surface flex items-center justify-between">
                 <h3 className="font-serif font-black text-xl uppercase tracking-tight">{t.clTitle}</h3>
                 <div className="flex gap-2">
-                  <button 
-                    onClick={async () => {
-                      const cl = await generateCoverLetter();
-                      if (cl && currentId) updateHistoryContent(currentId, { coverLetter: cl });
-                      showToast(t.toastCLSuccess);
-                    }}
+                  <button
+                    onClick={onHandleGenerateCL}
                     disabled={isGeneratingCL}
                     className="h-9 border border-accent/20 bg-surface px-4 hover:bg-accent hover:text-background transition-all flex items-center gap-2 text-[9px] font-black tracking-[0.2em] uppercase disabled:opacity-30"
                   >
                     <FiRefreshCw className={isGeneratingCL ? 'animate-spin' : ''} /> {lang === 'vi' ? 'TẠO LẠI' : 'REGENERATE'}
                   </button>
-                  <button 
-                    onClick={() => { navigator.clipboard.writeText(coverLetter); showToast(t.toastCopied); }} 
-                    disabled={isGeneratingCL || !coverLetter} 
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(coverLetter); showToast(t.toastCopied); }}
+                    disabled={isGeneratingCL || !coverLetter}
                     className="h-9 border border-border bg-surface px-4 hover:border-accent hover:bg-accent hover:text-black transition-all flex items-center gap-2 text-[9px] font-black tracking-[0.2em] uppercase disabled:opacity-30"
                   >
                     {lang === 'vi' ? 'SAO CHÉP' : 'COPY'}
@@ -433,7 +668,7 @@ export default function AppPage() {
                   <button onClick={() => dispatch({ type: 'SET_MODAL', modal: 'showCLModal', value: false })} className="px-3 py-2 border border-border text-neutral hover:text-negative ml-2">✕</button>
                 </div>
               </div>
-              
+
               <div className="flex-1 overflow-hidden p-10 custom-scrollbar">
                 {isGeneratingCL ? (
                   <div className="flex flex-col gap-6">
@@ -452,12 +687,8 @@ export default function AppPage() {
                     <FiFileText className="text-6xl text-neutral opacity-20" />
                     <div className="text-center">
                       <p className="text-neutral mb-4 uppercase tracking-[0.2em] font-black text-xs">{lang === 'vi' ? 'Chưa có nội dung Cover Letter' : 'No Cover Letter generated yet'}</p>
-                      <button 
-                        onClick={async () => {
-                          const cl = await generateCoverLetter();
-                          if (cl && currentId) updateHistoryContent(currentId, { coverLetter: cl });
-                          showToast(t.toastCLSuccess);
-                        }}
+                      <button
+                        onClick={onHandleGenerateCL}
                         className="px-10 py-4 bg-accent text-background font-black uppercase tracking-widest hover:scale-105 transition-transform shadow-xl"
                       >
                         {t.generateCL}
@@ -465,14 +696,14 @@ export default function AppPage() {
                     </div>
                   </div>
                 ) : (
-                  <textarea 
-                    value={coverLetter} 
+                  <textarea
+                    value={coverLetter}
                     onChange={e => {
                       const val = e.target.value;
                       setCoverLetter(val);
                       if (currentId) updateHistoryContent(currentId, { coverLetter: val });
-                    }} 
-                    className="w-full h-full min-h-[500px] overflow-y-auto bg-transparent text-foreground font-light text-[17px] leading-relaxed resize-none focus:outline-none custom-scrollbar" 
+                    }}
+                    className="w-full h-full min-h-[500px] overflow-y-auto bg-transparent text-foreground font-light text-[17px] leading-relaxed resize-none focus:outline-none custom-scrollbar"
                   />
                 )}
               </div>
@@ -490,12 +721,8 @@ export default function AppPage() {
                 <h3 className="font-serif font-black text-xl uppercase tracking-tight">{t.interviewTitle}</h3>
                 <div className="flex items-center gap-2">
                   <button onClick={handleExportExcel} disabled={isGeneratingInterview || interviewPrep.length === 0} className="h-9 border border-accent/20 bg-surface px-4 hover:bg-accent hover:text-background transition-all flex items-center gap-2 text-[9px] font-black tracking-[0.2em] uppercase disabled:opacity-30">{lang === 'vi' ? 'Xuất Excel' : 'Excel'}</button>
-                  <button 
-                    onClick={async () => {
-                      const prep = await generateInterviewPrep();
-                      if (prep && currentId) updateHistoryContent(currentId, { interviewPrep: prep });
-                      showToast(t.toastInterviewSuccess);
-                    }}
+                  <button
+                    onClick={onHandleGenerateInterview}
                     disabled={isGeneratingInterview}
                     className="h-9 border border-positive/20 bg-surface px-4 hover:bg-positive hover:text-black transition-all flex items-center gap-2 text-[9px] font-black tracking-[0.2em] uppercase disabled:opacity-30"
                   >
@@ -512,8 +739,8 @@ export default function AppPage() {
                         <div className="flex gap-4 items-start">
                           <div className="w-7 h-7 bg-border animate-pulse shrink-0" />
                           <div className="flex-1 flex flex-col gap-2">
-                             <div className="h-2 w-16 animate-shimmer" />
-                             <div className="h-5 w-full animate-shimmer" />
+                            <div className="h-2 w-16 animate-shimmer" />
+                            <div className="h-5 w-full animate-shimmer" />
                           </div>
                         </div>
                         <div className="ml-11 h-20 bg-border/20 animate-shimmer" />
@@ -525,12 +752,8 @@ export default function AppPage() {
                     <FiMic className="text-6xl text-neutral opacity-20" />
                     <div className="text-center">
                       <p className="text-neutral mb-4 uppercase tracking-[0.2em] font-black text-xs">{lang === 'vi' ? 'Chưa có bộ câu hỏi phỏng vấn' : 'No interview questions generated yet'}</p>
-                      <button 
-                        onClick={async () => {
-                          const prep = await generateInterviewPrep();
-                          if (prep && currentId) updateHistoryContent(currentId, { interviewPrep: prep });
-                          showToast(t.toastInterviewSuccess);
-                        }}
+                      <button
+                        onClick={onHandleGenerateInterview}
                         className="px-10 py-4 bg-positive text-background font-black uppercase tracking-widest hover:scale-105 transition-transform shadow-xl"
                       >
                         {t.prepareInterview}

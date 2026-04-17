@@ -12,6 +12,11 @@ export interface AnalysisResult {
   skillsAnalysis: { skill: string; cv: number; jd: number }[];
 }
 
+export interface Message {
+  role: "user" | "assistant";
+  content: string;
+}
+
 export interface HistoryEntry {
   id: string;
   timestamp: string;
@@ -22,6 +27,7 @@ export interface HistoryEntry {
   resumeText: string;
   jobDescription: string;
   lang: string;
+  messages?: Message[];
   coverLetter?: string;
   interviewPrep?: any[];
 }

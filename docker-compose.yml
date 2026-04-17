@@ -26,7 +26,7 @@ services:
     build: 
       context: ./backend
     container_name: cv-worker
-    command: npm run worker
+    command: npm run worker:prod
     environment:
       - REDIS_URL=redis://redis:6379
       - GEMINI_API_KEY=${GEMINI_API_KEY}

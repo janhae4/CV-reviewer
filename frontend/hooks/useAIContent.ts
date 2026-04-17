@@ -7,9 +7,10 @@ interface UseAIContentProps {
   lang: string;
   userApiKey: string;
   visitorId: string;
+  aiSettings?: { maxInput: number; maxOutput: number };
 }
 
-export function useAIContent({ resumeText, jobDescription, lang, userApiKey, visitorId }: UseAIContentProps) {
+export function useAIContent({ resumeText, jobDescription, lang, userApiKey, visitorId, aiSettings }: UseAIContentProps) {
   const [coverLetter, setCoverLetter] = useState("");
   const [isGeneratingCL, setIsGeneratingCL] = useState(false);
   const [clProgress, setClProgress] = useState(0);
@@ -40,18 +41,33 @@ export function useAIContent({ resumeText, jobDescription, lang, userApiKey, vis
       const resp = await fetch(`/api/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "cover-letter", resumeText, jobDescription, lang, userApiKey, visitorId })
+        body: JSON.stringify({ 
+          type: "cover-letter", 
+          resumeText, 
+          jobDescription, 
+          lang, 
+          userApiKey, 
+          visitorId,
+          maxInputChars: aiSettings?.maxInput,
+          maxOutputTokens: aiSettings?.maxOutput
+        })
       });
       const data = await resp.json();
+      if (!resp.ok) {
+        throw new Error(data.error || "Failed to initiate generation");
+      }
       if (data.jobId) {
         const res = await connectSSE(data.jobId);
-        setCoverLetter(res);
         setClProgress(100);
+        // Wait for animation
+        await new Promise(resolve => setTimeout(resolve, 600));
+        setCoverLetter(res);
         return res;
       }
       return null;
     } catch (e) {
       console.error(e);
+      throw e;
     } finally {
       clearInterval(interval);
       setIsGeneratingCL(false);
@@ -67,18 +83,33 @@ export function useAIContent({ resumeText, jobDescription, lang, userApiKey, vis
       const resp = await fetch(`/api/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "interview", resumeText, jobDescription, lang, userApiKey, visitorId })
+        body: JSON.stringify({ 
+          type: "interview", 
+          resumeText, 
+          jobDescription, 
+          lang, 
+          userApiKey, 
+          visitorId,
+          maxInputChars: aiSettings?.maxInput,
+          maxOutputTokens: aiSettings?.maxOutput
+        })
       });
       const data = await resp.json();
+      if (!resp.ok) {
+        throw new Error(data.error || "Failed to initiate generation");
+      }
       if (data.jobId) {
         const res = await connectSSE(data.jobId);
-        setInterviewPrep(res);
         setInterviewProgress(100);
+        // Wait for animation
+        await new Promise(resolve => setTimeout(resolve, 600));
+        setInterviewPrep(res);
         return res;
       }
       return null;
     } catch (e) {
       console.error(e);
+      throw e;
     } finally {
       clearInterval(interval);
       setIsGeneratingInterview(false);

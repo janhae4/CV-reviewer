@@ -16,7 +16,8 @@ const DEFAULTS = {
   LANG: "vi",
   JD_LIMIT: 20000,
   CV_LIMIT: 100000,
-  EMBED_LIMIT: 5000
+  EMBED_LIMIT: 5000,
+  MAX_OUTPUT: 1000
 };
 
 const defaultAi = new GoogleGenAI({
@@ -75,13 +76,51 @@ export const normalizeText = (text: string) => {
 // ─── CORE AI LOGIC ──────────────────────────────────────────────────────────
 
 /**
+ * Calculates semantic similarity match percentage.
+ */
+export const calculateSemanticMatch = async (
+  resumeText: string,
+  jobDescription: string,
+  providedApiKey?: string
+): Promise<number | null> => {
+  try {
+    const aiClient = getAiClient(providedApiKey);
+    const normalizedCV = normalizeText(sanitize(resumeText, DEFAULTS.EMBED_LIMIT));
+    const normalizedJD = normalizeText(sanitize(jobDescription, DEFAULTS.EMBED_LIMIT));
+
+    const texts = [normalizedCV, normalizedJD];
+
+    const response = await aiClient.models.embedContent({
+      model: MODELS.EMBEDDING,
+      contents: texts,
+      config: { taskType: 'SEMANTIC_SIMILARITY' as any },
+    });
+
+    const embeddings = response?.embeddings?.map(e => e.values) || [];
+    console.log("Embeddings", embeddings);
+    if (embeddings.length >= 2) {
+      const similarity = (cosineSimilarity as any)(embeddings[0], embeddings[1]);
+      console.log("Similarity", similarity);
+      if (similarity !== null) {
+        return Math.round(similarity * 100);
+      }
+    }
+    return null;
+  } catch (error) {
+    console.error("Semantic Match Error:", error);
+    return null;
+  }
+};
+
+/**
  * Comprehensive CV Analysis against a Job Description.
  */
 export const reviewResume = async (
   resumeText: string,
   jobDescription: string,
   lang: string = DEFAULTS.LANG,
-  providedApiKey?: string
+  providedApiKey?: string,
+  maxOutputTokens: number = DEFAULTS.MAX_OUTPUT
 ) => {
   const languageName = lang === "en" ? "English" : "Tiếng Việt";
   const aiClient = getAiClient(providedApiKey);
@@ -116,6 +155,7 @@ RESPONSE FORMAT (STRICT JSON):
     model: MODELS.FLASH,
     contents: [{ role: "user", parts: [{ text: prompt }] }],
     config: {
+      maxOutputTokens: maxOutputTokens,
       systemInstruction: {
         parts: [{ text: `You are a professional ATS analyzer. Strictly return the analysis as a JSON object in ${languageName}.` }]
       }
@@ -129,7 +169,6 @@ RESPONSE FORMAT (STRICT JSON):
     keywordOptimizationTips: [], annotations: [], skillsAnalysis: []
   });
 
-  // Automatically include semantic match in the review for backward compatibility with worker
   const semanticScore = await calculateSemanticMatch(resumeText, jobDescription, providedApiKey);
 
   return { ...analysis, semanticScore };
@@ -142,7 +181,8 @@ export const generateCoverLetter = async (
   resumeText: string,
   jobDescription: string,
   lang: string = DEFAULTS.LANG,
-  providedApiKey?: string
+  providedApiKey?: string,
+  maxOutputTokens: number = DEFAULTS.MAX_OUTPUT
 ) => {
   const languageName = lang === "en" ? "English" : "Tiếng Việt";
   const aiClient = getAiClient(providedApiKey);
@@ -158,7 +198,8 @@ Guidelines: Quantify achievements, match JD requirements, stay professional. Ret
 
   const response = await aiClient.models.generateContent({
     model: MODELS.FLASH,
-    contents: [{ role: "user", parts: [{ text: prompt }] }]
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    config: { maxOutputTokens: maxOutputTokens }
   });
 
   return (response.candidates?.[0]?.content?.parts?.[0]?.text || "").replace(/\*\*(.*?)\*\*/g, "$1").trim();
@@ -171,7 +212,8 @@ export const generateInterviewPrep = async (
   resumeText: string,
   jobDescription: string,
   lang: string = DEFAULTS.LANG,
-  providedApiKey?: string
+  providedApiKey?: string,
+  maxOutputTokens: number = DEFAULTS.MAX_OUTPUT
 ) => {
   const languageName = lang === "en" ? "English" : "Tiếng Việt";
   const aiClient = getAiClient(providedApiKey);
@@ -188,7 +230,10 @@ JSON FORMAT: [{"question": "...", "answer": "...", "rationale": "..."}]`;
   const response = await aiClient.models.generateContent({
     model: MODELS.FLASH,
     contents: [{ role: "user", parts: [{ text: prompt }] }],
-    config: { systemInstruction: { parts: [{ text: "Return ONLY a JSON array." }] } }
+    config: {
+      maxOutputTokens: maxOutputTokens,
+      systemInstruction: { parts: [{ text: "Return ONLY a JSON array." }] }
+    }
   });
 
   const responseText = response.candidates?.[0]?.content?.parts?.[0]?.text || "";
@@ -203,7 +248,8 @@ export const magicFixBulletPoint = async (
   resumeText: string,
   jobDescription: string,
   lang: string = DEFAULTS.LANG,
-  providedApiKey?: string
+  providedApiKey?: string,
+  maxOutputTokens: number = DEFAULTS.MAX_OUTPUT
 ) => {
   const languageName = lang === "en" ? "English" : "Tiếng Việt";
   const aiClient = getAiClient(providedApiKey);
@@ -218,52 +264,11 @@ Formula: [Impact Verb] + [Task] + [Measurable Result]. Return ONLY the rewritten
 
   const response = await aiClient.models.generateContent({
     model: MODELS.FLASH,
-    contents: [{ role: "user", parts: [{ text: prompt }] }]
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    config: { maxOutputTokens: maxOutputTokens }
   });
 
   return response.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || quote;
-};
-
-/**
- * Calculates semantic similarity match percentage.
- */
-export const calculateSemanticMatch = async (
-  resumeText: string,
-  jobDescription: string,
-  providedApiKey?: string
-): Promise<number | null> => {
-  try {
-    const aiClient = getAiClient(providedApiKey);
-    const normalizedCV = normalizeText(sanitize(resumeText, DEFAULTS.EMBED_LIMIT));
-    const normalizedJD = normalizeText(sanitize(jobDescription, DEFAULTS.EMBED_LIMIT));
-
-    const [cvResult, jdResult] = await Promise.all([
-      aiClient.models.embedContent({
-        model: MODELS.EMBEDDING,
-        contents: [{ parts: [{ text: normalizedCV }] }],
-        config: { taskType: 'SEMANTIC_SIMILARITY' as any }
-      }),
-      aiClient.models.embedContent({
-        model: MODELS.EMBEDDING,
-        contents: [{ parts: [{ text: normalizedJD }] }],
-        config: { taskType: 'SEMANTIC_SIMILARITY' as any }
-      })
-    ]);
-
-    const cvVec = cvResult.embeddings?.[0]?.values;
-    const jdVec = jdResult.embeddings?.[0]?.values;
-
-    if (cvVec && jdVec) {
-      const similarity = (cosineSimilarity as any)(cvVec, jdVec);
-      if (similarity !== null) {
-        return Math.round(similarity * 100);
-      }
-    }
-    return null;
-  } catch (error) {
-    console.error("Semantic Match Error:", error);
-    return null;
-  }
 };
 
 /**
@@ -275,7 +280,8 @@ export const chatWithAi = async (
   resumeText: string,
   jobDescription: string,
   lang: string = DEFAULTS.LANG,
-  providedApiKey?: string
+  providedApiKey?: string,
+  maxOutputTokens: number = DEFAULTS.MAX_OUTPUT
 ) => {
   const languageName = lang === "en" ? "English" : "Tiếng Việt";
   const aiClient = getAiClient(providedApiKey);
@@ -296,7 +302,10 @@ export const chatWithAi = async (
       ...history,
       { role: "user", parts: [{ text: message }] }
     ],
-    config: { systemInstruction: { parts: [{ text: systemInstruction }] } }
+    config: {
+      maxOutputTokens: maxOutputTokens,
+      systemInstruction: { parts: [{ text: systemInstruction }] }
+    }
   });
 
   return response.candidates?.[0]?.content?.parts?.[0]?.text || "";
