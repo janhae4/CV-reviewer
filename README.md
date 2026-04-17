@@ -1,86 +1,112 @@
-# Resume Engine 🚀
+# Resume·Core ⚡
+### Advanced ATS CV Reviewer & Career Assistant
 
-A high-performance, AI-driven ATS Resume Reviewer and Career Assistant built with **Next.js**, **Express**, **BullMQ**, and **Google Gemini AI**.
+A high-performance, brutalist-editorial web application designed for deep CV analysis, ATS optimization, and career preparation. Powered by Google Gemini AI and built with a robust microservices architecture.
 
-![Design Preview](https://github.com/user-attachments/assets/your-screenshot-placeholder)
+![Resume Core Demo](https://images.unsplash.com/photo-1586281380349-632531db7ed4?auto=format&fit=crop&q=80&w=2070&ixlib=rb-4.0.3)
 
-## 🌟 Key Features
+---
 
-- **Deep ATS Analysis**: Evaluates resume match rate against specific job descriptions using LLMs and Semantic Embeddings.
-- **Asynchronous Processing**: Background job queue using **BullMQ** and **Redis** for stable, non-blocking AI tasks.
-- **Smart AI Tools**:
-  - **Cover Letter Generator**: High-fidelity, tailored cover letters.
-  - **Interview Prep**: Predicted questions and optimal answers based on CV/JD context.
-  - **Magic Fix**: AI-powered bullet point optimization for maximum impact.
-- **Backend Mastery Analysis**: Specialized review for backend engineers (System Design, DB, Cloud mastery).
-- **Pro-Grade Infrastructure**:
-  - **Rate Limiting**: Server-side visitors tracking using FingerprintJS and Redis.
-  - **Comprehensive Logging**: Structured logging with Winston.
-  - **Unit & Integration Tests**: Robust test suite using Jest and Supertest.
+## 🚀 Features
 
-## 🏗️ Architecture
+- **Deep ATS Analysis**: Evaluates CV against Job Descriptions with detailed scoring and actionable feedback.
+- **Semantic Matching**: Uses Gemini Embeddings to calculate a multi-dimensional "Matching Score" between candidate and role.
+- **Live PDF Annotations**: High-fidelity PDF preview with handwritten-style AI annotations and error highlights.
+- **AI Career Tools**:
+  - **Cover Letter Gen**: Persuasive, quantified, and JD-tailored cover letters.
+  - **Interview Prep**: Predictive interview questions with rationale and ideal answers.
+  - **Career Assistant**: Interactive chat for real-time career advice and CV improvements.
+- **Brutalist Design**: High-contrast, high-performance interface with glassmorphism and smooth micro-animations.
+- **Robust Backend**: Queue-based job processing (BullMQ + Redis) for reliable AI generation.
 
-```mermaid
-graph TD
-    User([User]) <--> Frontend[Next.js Frontend]
-    Frontend <--> API[Express API]
-    API <--> Redis[(Redis)]
-    API -- Enqueue --> Queue[BullMQ Queue]
-    Queue --- Worker[Background Worker]
-    Worker <--> Gemini[Google Gemini AI]
-    Worker -- Save Results --> Redis
-```
+---
 
-## 🛠️ Tech Stack
+## 🛠 Tech Stack
 
-- **Frontend**: Next.js 15, TailwindCSS, Motion, React Icons.
-- **Backend**: Node.js, Express, TypeScript.
-- **Data/Queue**: Redis, BullMQ.
-- **AI**: Google Generative AI (@google/genai).
-- **Testing**: Jest, Supertest.
-- **Logging**: Winston.
+### Frontend
+- **Framework**: [Next.js 15](https://nextjs.org/) (App Router)
+- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
+- **Animations**: [Motion](https://motion.dev/) (Framer Motion)
+- **Icons**: [React Icons](https://react-icons.github.io/react-icons/)
+- **PDF Core**: [PDF.js](https://mozilla.github.io/pdf.js/)
 
-## 🚀 Getting Started
+### Backend
+- **Core**: [Node.js](https://nodejs.org/) & [Express](https://expressjs.com/)
+- **AI Engine**: [Google Gemini AI](https://ai.google.dev/) (`@google/genai`)
+- **Job Queue**: [BullMQ](https://docs.bullmq.io/) with [Redis](https://redis.io/)
+- **File Handling**: [Multer](https://github.com/expressjs/multer) & [PDF-Parse](https://www.npmjs.com/package/pdf-parse)
+
+### Infrastructure
+- **Containerization**: Docker & Docker Compose
+- **Database**: IndexedDB (Local Storage) for session persistence.
+
+---
+
+## 📦 Getting Started
 
 ### Prerequisites
-
 - Node.js 20+
-- Redis Server
-- Gemini API Key ([Get one here](https://aistudio.google.com/))
+- Docker & Docker Compose
+- Google Gemini API Key
 
 ### Installation
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/cv-reviewer.git
-   cd cv-reviewer
+   git clone https://github.com/your-username/CV-reviewer.git
+   cd CV-reviewer
    ```
 
-2. **Setup Backend**
+2. **Configure Environment Variables**
+   Create a `.env` file in the root:
+   ```env
+   GEMINI_API_KEY=your_api_key_here
+   REDIS_URL=redis://redis:6379
+   NEXT_PUBLIC_BACKEND_URL=http://localhost:3001
+   ```
+
+3. **Launch with Docker**
    ```bash
-   cd backend
-   npm install
-   # Create .env file
-   echo "GEMINI_API_KEY=your_key_here\nREDIS_URL=redis://localhost:6379" > .env
-   npm run dev
-   # In another terminal
-   npm run worker
+   docker compose up -d --build
    ```
 
-3. **Setup Frontend**
-   ```bash
-   cd ../frontend
-   npm install
-   npm run dev
-   ```
+4. **Access the Application**
+   - Frontend: `http://localhost:3000`
+   - Backend: `http://localhost:3001`
 
-## 🧪 Testing
+---
 
-```bash
-cd backend
-npm test
-```
+## 🛡 Security & Performance
 
-## 🛡️ License
+- **Rate Limiting**: Integrated Redis-based rate limiting per visitor.
+- **Data Privacy**: CV files are processed in-memory and never stored permanently (only metadata in IndexedDB).
+- **Validation**: Strict backend validation for input length, file types, and JD quality.
 
-MIT License. See [LICENSE](LICENSE) for details.
+---
+
+## 🎨 Aesthetic Philosophy
+
+Resume·Core follows a **Brutalist-Editorial** design system:
+- **Typography**: Fraunces (Serif) for headings, Manrope (Sans) for data.
+- **Color Palette**: Pitch black surfaces (`#030303`), Neon Accent (`#E1FF01`), and high-contrast status colors.
+- **Motion**: Purposeful transitions that respect reduced-motion settings while providing a premium feel.
+
+---
+
+## 🤝 Contributing
+
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+---
+
+## 📄 License
+
+Distributed under the MIT License. See `LICENSE` for more information.
+
+---
+
+Built with ⚡ by [Your Name/Team]
